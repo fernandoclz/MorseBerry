@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <wiringPi.h>
 
-#define BUTTON_PIN 6
+#define BUTTON_PIN 17
 #define WPM_20_POINT 60 //ms
 #define WPM_20_LINE 180
 #define UMBRAL 120
@@ -14,42 +14,29 @@ int main(void){
 	}
 	//Intentar leer el botón
 	pinMode(BUTTON_PIN, INPUT);
-	pullUpDnControl(BUTTON_PIN, PUD_DOWN);
+	pullUpDnControl(BUTTON_PIN, PUD_OFF);
 
-	unsigned int lastReleaseTime = millis();
 	int pulsando = 0;
-	int letraPend = 0;
-	int palabraPend = 0;
 
 	while(1){
 		int estado = digitalRead(BUTTON_PIN);
 
-		if(estado == HIGH && !pulsando){
+		if(estado == LOW && !pulsando){
 			pulsando = 1;
-			unsigned int starTime = millis();
+			unsigned int startTime = millis();
 
-			while(digitalRead(BUTTON_PIN) == HIGH) delay(1);
-			unsigned int duration = millis() - starTime;
+			while(digitalRead(BUTTON_PIN) == LOW)delay(1);
+			unsigned int duration = millis() - startTime;
 
-			lastReleaseTime = millis();
 			pulsando = 0;
 			if (duration < UMBRAL) {
-                		printf(".");
+                		printf(". ,%d\n", duration);
             		} else {
-                		printf("-");
+                		printf("- ,%d\n", duration);
             		}
             		fflush(stdout);
-			letraPend = 1;
-			palabraPend = 1;
 		}
 
-		unsigned int silencio = millis() - lastReleaseTime;
-
-		if(letraPend && silencio >= CHAR_TIME){
-			printf(" ");
-			fflush(stdout);
-			letraPend = 0;
-		}
 	}
 	return 0;
 }

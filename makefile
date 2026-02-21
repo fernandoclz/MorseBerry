@@ -8,10 +8,10 @@ CC = gcc
 CFLAGS = -Wall
 
 # Librerías a enlazar (wiringPi es la principal)
-LIBS = -lwiringPi
+LIBS = -lgpiod
 
 # Archivos fuente
-SRC = boton.c
+SRC = main.c
 
 # Regla principal: lo que pasa cuando solo escribes "make"
 all: $(TARGET)
