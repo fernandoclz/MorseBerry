@@ -1,5 +1,5 @@
 # Nombre del ejecutable final
-TARGET = boton
+TARGET = main
 
 # Compilador a utilizar
 CC = gcc
