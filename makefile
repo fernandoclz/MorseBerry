@@ -7,11 +7,11 @@ CC = gcc
 # Banderas de compilación (Warnings activados)
 CFLAGS = -Wall
 
-# Librerías a enlazar (wiringPi es la principal)
-LIBS = -lgpiod
+# Librerías a enlazar (gpiod y pthread para los hilos)
+LIBS = -lgpiod -lpthread
 
-# Archivos fuente
-SRC = main.c
+# Archivos fuente (¡AQUÍ AÑADIMOS EL NUEVO ARCHIVO!)
+SRC = main.c traductor_morse.c
 
 # Regla principal: lo que pasa cuando solo escribes "make"
 all: $(TARGET)
@@ -22,7 +22,3 @@ $(TARGET): $(SRC)
 # Regla para limpiar los archivos generados
 clean:
 	rm -f $(TARGET)
-
-# Regla para ejecutar el programa directamente
-run: $(TARGET)
-	sudo ./$(TARGET)
