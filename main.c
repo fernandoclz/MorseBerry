@@ -7,6 +7,8 @@
 #include <time.h>
 #include <pthread.h>
 
+#include "traductor_morse.h"
+
 #define FREQ 100
 #define GPIO_PREDET 17
 
@@ -210,13 +212,32 @@ int main(int argc, char **argv)
         if (lectura != 0)
         {
             if (lectura == SIMBOLO_PUNTO)
+            {
                 printf(".");
+                morse_avanzar('.');
+            }
             else if (lectura == SIMBOLO_RAYA)
+            {
                 printf("-");
+                morse_avanzar('-');
+            }
             else if (lectura == SIMBOLO_ESPACIO)
-                printf(" [FIN LETRA] ");
+            {
+                // Obtenemos la letra final y el estado se reinicia solo
+                char letra_final = morse_obtener_resultado();
+                if (letra_final != '?')
+                {
+                    printf(" -> [%c]\n", letra_final);
+                }
+                else
+                {
+                    printf(" -> [Símbolo no reconocido]\n");
+                }
+            }
             else if (lectura == SIMBOLO_DESCONOCIDO)
+            {
                 printf("?");
+            }
             fflush(stdout);
         }
 
