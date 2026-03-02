@@ -6,6 +6,8 @@
 #include <gpiod.h>
 #include <time.h>
 #include <pthread.h>
+#include <termios.h>
+#include <fcntl.h>
 
 #include "traductor_morse.h"
 
@@ -19,8 +21,9 @@
 
 #define SIMBOLO_PUNTO 1
 #define SIMBOLO_RAYA 2
-#define SIMBOLO_ESPACIO 3
-#define SIMBOLO_DESCONOCIDO 4
+#define SIMBOLO_ESPACIO_CORTO 3
+#define SIMBOLO_ESPACIO_LARGO 4
+#define SIMBOLO_DESCONOCIDO 5
 
 int morse_frecuency = FREQ;
 int morse_gpio = GPIO_PREDET;
@@ -29,11 +32,22 @@ int morse_gpio = GPIO_PREDET;
 volatile char simbolo_detectado = 0; // 0 = .   1 = -    2 = espacio
 pthread_mutex_t mutex_morse = PTHREAD_MUTEX_INITIALIZER;
 
+struct termios oldt;
+
+// --- MENSAJES ----
+void mensaje_menu(){
+    printf("\nMenu MorseBerry --- \n");
+    printf("Opciones: \n");
+    printf("  1 -> Deteccion letra a letra\n");
+    printf("  2 -> Modo libre\n");
+    printf("  3 -> Salir de aplicacion\n");
+}
 void mensaje_formato_args()
 {
     printf("\nFormato: ./main -g [gpio] -f [frecuencia]\n");
 }
 
+// ---- TIMEPO ----
 // obtener tiempo actual en milisegundos
 long long obtener_tiempo_actual()
 {
@@ -45,6 +59,7 @@ long long obtener_tiempo_actual()
     return res;
 }
 
+// ---- HILO DE GPIO ----
 void *funcion_hilo_gpio(void *arg)
 {
     struct gpiod_line_request *request = (struct gpiod_line_request *)arg;
@@ -100,12 +115,19 @@ void *funcion_hilo_gpio(void *arg)
             }
         }
         else if (ret == 0 && pulsado == 0)
-        { // si no hay eventos y el boton no se pulsa se revisaa si hay espacio largo
+        { // si no hay eventos y el boton no se pulsa se revisaa si hay espacio largo o corto
             int tiempo_ahora = obtener_tiempo_actual();
-            if (tiempo_ahora - tiempo_sin_pulsar > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0)
+            if (TIEMPO_RAYA - DESVIACION <= tiempo_ahora - tiempo_sin_pulsar &&
+                        tiempo_ahora - tiempo_sin_pulsar <= TIEMPO_RAYA + DESVIACION)
+            { // es espacio corto
+                pthread_mutex_lock(&mutex_morse);
+                simbolo_detectado = SIMBOLO_ESPACIO_CORTO;
+                pthread_mutex_unlock(&mutex_morse);
+            }
+            else if (tiempo_ahora - tiempo_sin_pulsar > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0)
             {
                 pthread_mutex_lock(&mutex_morse);
-                simbolo_detectado = SIMBOLO_ESPACIO;
+                simbolo_detectado = SIMBOLO_ESPACIO_LARGO;
                 tiempo_sin_pulsar = 0;
                 pthread_mutex_unlock(&mutex_morse);
             }
@@ -113,6 +135,146 @@ void *funcion_hilo_gpio(void *arg)
     }
 
     return NULL;
+}
+
+// ---- TERMINAL ----
+void activar_modo_raw() {
+    struct termios newt;
+
+    tcgetattr(STDIN_FILENO, &oldt); 
+    newt = oldt;
+
+    newt.c_lflag &= ~(ICANON | ECHO); 
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+}
+
+void restaurar_terminal() {
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+}
+
+//---- MODOS DE APLICACION ---
+void modo_letra_a_letra(){
+    printf("\nModo Letra a letra\n");
+    printf("Para volver al manu pulse ESC\n");
+    
+    activar_modo_raw();
+    int simbolo_desc_encontrado = 0;
+
+    while(1){
+        // mirar si se ha pulsado ESC
+        char tecla;
+        if (read(STDIN_FILENO, &tecla, 1) > 0) {
+            if (tecla == 27) {  // ESC
+                break;
+            }
+        }
+        
+        char lectura = 0;
+        pthread_mutex_lock(&mutex_morse);
+        if (simbolo_detectado != 0)
+        {
+            lectura = simbolo_detectado;
+            simbolo_detectado = 0; 
+        }
+        pthread_mutex_unlock(&mutex_morse);
+        if (lectura != 0) {
+            if (lectura == SIMBOLO_PUNTO) {
+                printf(".");
+                morse_avanzar('.');
+            }
+            else if (lectura == SIMBOLO_RAYA){
+                printf("-");
+                morse_avanzar('-');
+            }
+            else if (lectura == SIMBOLO_ESPACIO_LARGO){
+                // Obtenemos la letra final y el estado se reinicia solo
+                char letra_final = morse_obtener_resultado();
+                if (letra_final != '?' && !simbolo_desc_encontrado)
+                {
+                    printf(" -> [%c]\n", letra_final);
+                }
+                else
+                {
+                    printf(" -> [Símbolo no reconocido]\n");
+                }
+                simbolo_desc_encontrado = 0;
+            }
+            else if (lectura == SIMBOLO_DESCONOCIDO){
+                printf("?");
+                simbolo_desc_encontrado = 1;
+            }
+            fflush(stdout);
+        }
+
+        usleep(10000);
+    }
+
+   restaurar_terminal();
+
+}
+
+void modo_libre(){
+    printf("\nModo Libre\n");
+    printf("Para volver al manu pulse ESC\n");
+    
+    activar_modo_raw();
+    int simbolo_desc_encontrado = 0;
+
+    
+    while(1){
+        // mirar si se ha pulsado ESC
+        char tecla;
+        if (read(STDIN_FILENO, &tecla, 1) > 0) {
+            if (tecla == 27) {  // ESC
+                break;
+            }
+        }
+
+        char lectura = 0;
+        pthread_mutex_lock(&mutex_morse);
+        if (simbolo_detectado != 0)
+        {
+            lectura = simbolo_detectado;
+            simbolo_detectado = 0;
+        }
+        pthread_mutex_unlock(&mutex_morse);
+        if (lectura != 0) {
+            if (lectura == SIMBOLO_PUNTO) {
+                morse_avanzar('.');
+            }
+            else if (lectura == SIMBOLO_RAYA){
+                morse_avanzar('-');
+            }
+            else if (lectura == SIMBOLO_ESPACIO_CORTO){
+                // Obtenemos la letra final y el estado se reinicia solo
+                char letra_final = morse_obtener_resultado();
+                if (letra_final != '?' && !simbolo_desc_encontrado)
+                {
+                    printf("%c", tolower(letra_final));
+                }
+                else
+                {
+                    printf("?");
+                }
+                simbolo_desc_encontrado = 0;
+            }
+            else if (lectura == SIMBOLO_ESPACIO_LARGO){
+                printf(" ");
+                simbolo_desc_encontrado = 0;
+            }
+            else if (lectura == SIMBOLO_DESCONOCIDO){
+                printf("?");
+                simbolo_desc_encontrado = 1;
+            }
+            fflush(stdout);
+        }
+
+        usleep(10000);
+    }
+
+   restaurar_terminal();
 }
 
 /*
@@ -193,58 +355,95 @@ int main(int argc, char **argv)
     }
 
     printf("--- ENTRNADOR MORSE INICIADO (GPIO: %d) ---\n", morse_gpio);
+   
     /*
-           BUCLE INFINITO
+           BUCLE PRINCIPAL INFINITO
        */
+    int opcion_menu = 0;
+    
+    while (1)
+    {
+
+        mensaje_menu();
+        printf("\n\nOpcion elegida: ");
+        while(opcion_menu == 0){
+            scanf(" %c", &opcion_menu);
+        } 
+
+        if(opcion_menu == '1'){
+            modo_letra_a_letra();
+            opcion_menu = 0;
+        }
+        else if(opcion_menu == '2'){
+            modo_libre();
+            opcion_menu = 0;
+        }
+        else if(opcion_menu == '3'){
+            printf("Saliendo de la aplicacion\n");
+            break;
+        }
+    
+    }
+    /*
     while (1)
     {
         char lectura = 0;
 
+        mensaje_menu();
+        scanf(" %c"&opcion_menu); 
         // leer si gpio tiene algo
-        pthread_mutex_lock(&mutex_morse);
-        if (simbolo_detectado != 0)
-        {
-            lectura = simbolo_detectado;
-            simbolo_detectado = 0; // Consumimos el símbolo
-        }
-        pthread_mutex_unlock(&mutex_morse);
 
-        if (lectura != 0)
-        {
-            if (lectura == SIMBOLO_PUNTO)
+
+        if(opcion_menu == '1'){
+            printf("\nModo Letra a letra\n");
+
+            pthread_mutex_lock(&mutex_morse);
+            if (simbolo_detectado != 0)
             {
-                printf(".");
-                morse_avanzar('.');
+                lectura = simbolo_detectado;
+                simbolo_detectado = 0; // Consumimos el símbolo
             }
-            else if (lectura == SIMBOLO_RAYA)
+            pthread_mutex_unlock(&mutex_morse);
+
+            if (lectura != 0)
             {
-                printf("-");
-                morse_avanzar('-');
-            }
-            else if (lectura == SIMBOLO_ESPACIO)
-            {
-                // Obtenemos la letra final y el estado se reinicia solo
-                char letra_final = morse_obtener_resultado();
-                if (letra_final != '?')
+                if (lectura == SIMBOLO_PUNTO)
                 {
-                    printf(" -> [%c]\n", letra_final);
+                    printf(".");
+                    morse_avanzar('.');
                 }
-                else
+                else if (lectura == SIMBOLO_RAYA)
                 {
-                    printf(" -> [Símbolo no reconocido]\n");
+                    printf("-");
+                    morse_avanzar('-');
                 }
+                else if (lectura == SIMBOLO_ESPACIO)
+                {
+                    // Obtenemos la letra final y el estado se reinicia solo
+                    char letra_final = morse_obtener_resultado();
+                    if (letra_final != '?' && !simbolo_desc_encontrado)
+                    {
+                        printf(" -> [%c]\n", letra_final);
+                    }
+                    else
+                    {
+                        printf(" -> [Símbolo no reconocido]\n");
+                    }
+                    simbolo_desc_encontrado = 0;
+                }
+                else if (lectura == SIMBOLO_DESCONOCIDO)
+                {
+                    printf("?");
+                    simbolo_desc_encontrado = 1;
+                }
+                fflush(stdout);
             }
-            else if (lectura == SIMBOLO_DESCONOCIDO)
-            {
-                printf("?");
-            }
-            fflush(stdout);
         }
 
         // El main puede hacer otras cosas aquí sin bloquear la detección de Morse
         usleep(10000);
     }
-
+    */
     /*
         LIMPIEZA
     */
