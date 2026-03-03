@@ -11,32 +11,37 @@
 
 #include "traductor_morse.h"
 
+// CONFIGURACIONES POR DEFECTO
 #define FREQ 100
 #define GPIO_PREDET 17
 
+//TIEMPOS POR DEFECTO 
 #define TIEMPO_PUNTO 100
 #define TIEMPO_RAYA 300
 #define TIEMPO_ESPACIO 700
 #define DESVIACION 50
 
+//SIMBOLOS
 #define SIMBOLO_PUNTO 1
 #define SIMBOLO_RAYA 2
-#define SIMBOLO_ESPACIO_CORTO 3
-#define SIMBOLO_ESPACIO_LARGO 4
+#define SIMBOLO_ESPACIO_CORTO 3     //fin de letra
+#define SIMBOLO_ESPACIO_LARGO 4     //fin palabra
 #define SIMBOLO_DESCONOCIDO 5
 
 int morse_frecuency = FREQ;
 int morse_gpio = GPIO_PREDET;
+int continuar_ejecucion_hilo = 1; //para indicar al hilo cuando se cierra aplicacion
 
-// variables compartidas para hilos
+// variables compartidas para hilo de GPIO
 volatile char simbolo_detectado = 0; // 0 = .   1 = -    2 = espacio
 pthread_mutex_t mutex_morse = PTHREAD_MUTEX_INITIALIZER;
 
+//restaurar la terminal al salir
 struct termios oldt;
 
 // --- MENSAJES ----
 void mensaje_menu(){
-    printf("\nMenu MorseBerry --- \n");
+    printf("\n--- Menu MorseBerry --- \n");
     printf("Opciones: \n");
     printf("  1 -> Deteccion letra a letra\n");
     printf("  2 -> Modo libre\n");
@@ -71,61 +76,53 @@ void *funcion_hilo_gpio(void *arg)
     int pulsado = 0;
     int ret;
 
-    while (1)
-    {
-
+    while (continuar_ejecucion_hilo){
+        //espera 100ms viendo si se produce evento se subida o bajada
         ret = gpiod_line_request_wait_edge_events(request, 100000000);
 
-        if (ret > 0)
-        {
-            if (gpiod_line_request_read_edge_events(request, buffer, 1) > 0)
-            {
+        if (ret > 0) {
+            if (gpiod_line_request_read_edge_events(request, buffer, 1) > 0) {
+                //sacamos el tipo del evento
                 event = gpiod_edge_event_buffer_get_event(buffer, 0);
                 int tipo = gpiod_edge_event_get_event_type(event);
 
-                if (tipo == GPIOD_EDGE_EVENT_FALLING_EDGE)
-                { // detecta flanco de bajada -> cuando se pulsa
+                //se actua segun el evento sea de bajada o subida
+                if (tipo == GPIOD_EDGE_EVENT_FALLING_EDGE) { // detecta flanco de bajada -> cuando se pulsa
                     tiempo_pulsado = obtener_tiempo_actual();
                     pulsado = 1;
                 }
-                else if (tipo == GPIOD_EDGE_EVENT_RISING_EDGE)
-                { // detecta flanco subida -> cuando se deja de pulsar
-                    int tiempo_ahora = obtener_tiempo_actual();
+                else if (tipo == GPIOD_EDGE_EVENT_RISING_EDGE){ // detecta flanco subida -> cuando se deja de pulsar
+                    long long tiempo_ahora = obtener_tiempo_actual();
                     long long duracion_pulsacion = tiempo_ahora - tiempo_pulsado;
                     tiempo_sin_pulsar = obtener_tiempo_actual();
                     pulsado = 0;
 
                     pthread_mutex_lock(&mutex_morse);
                     if (TIEMPO_PUNTO - DESVIACION <= duracion_pulsacion &&
-                        duracion_pulsacion <= TIEMPO_PUNTO + DESVIACION)
-                    { // es punto
+                        duracion_pulsacion <= TIEMPO_PUNTO + DESVIACION) { // es punto
                         simbolo_detectado = SIMBOLO_PUNTO;
                     }
                     else if (TIEMPO_RAYA - DESVIACION <= duracion_pulsacion &&
-                             duracion_pulsacion <= TIEMPO_RAYA + DESVIACION)
-                    { // es raya
+                             duracion_pulsacion <= TIEMPO_RAYA + DESVIACION){ // es raya
                         simbolo_detectado = SIMBOLO_RAYA;
                     }
-                    else
-                    {
+                    else{    //simbolo desconocido
                         simbolo_detectado = SIMBOLO_DESCONOCIDO;
                     }
                     pthread_mutex_unlock(&mutex_morse);
                 }
             }
         }
-        else if (ret == 0 && pulsado == 0)
-        { // si no hay eventos y el boton no se pulsa se revisaa si hay espacio largo o corto
-            int tiempo_ahora = obtener_tiempo_actual();
+        else if (ret == 0 && pulsado == 0)  { 
+            // si no hay eventos y el boton no se pulsa se revisaa si hay espacio largo o corto
+            long long tiempo_ahora = obtener_tiempo_actual();
             if (TIEMPO_RAYA - DESVIACION <= tiempo_ahora - tiempo_sin_pulsar &&
-                        tiempo_ahora - tiempo_sin_pulsar <= TIEMPO_RAYA + DESVIACION)
-            { // es espacio corto
+                        tiempo_ahora - tiempo_sin_pulsar <= TIEMPO_RAYA + DESVIACION) { // es espacio corto (fin de letra)
                 pthread_mutex_lock(&mutex_morse);
                 simbolo_detectado = SIMBOLO_ESPACIO_CORTO;
                 pthread_mutex_unlock(&mutex_morse);
             }
-            else if (tiempo_ahora - tiempo_sin_pulsar > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0)
-            {
+            else if (tiempo_ahora - tiempo_sin_pulsar > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0) { // es espacio largo (fin de palabra)
                 pthread_mutex_lock(&mutex_morse);
                 simbolo_detectado = SIMBOLO_ESPACIO_LARGO;
                 tiempo_sin_pulsar = 0;
@@ -134,10 +131,12 @@ void *funcion_hilo_gpio(void *arg)
         }
     }
 
+    gpiod_edge_event_buffer_free(buffer);
     return NULL;
 }
 
 // ---- TERMINAL ----
+// se configura para que pueda leer el ESC sin necesidad de esperar al ENTER
 void activar_modo_raw() {
     struct termios newt;
 
@@ -147,7 +146,7 @@ void activar_modo_raw() {
     newt.c_lflag &= ~(ICANON | ECHO); 
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK); //lectura no bloqueante
 }
 
 void restaurar_terminal() {
@@ -155,6 +154,7 @@ void restaurar_terminal() {
 }
 
 //---- MODOS DE APLICACION ---
+// muestra letra a letra mostrando los puntos y rayas
 void modo_letra_a_letra(){
     printf("\nModo Letra a letra\n");
     printf("Para volver al manu pulse ESC\n");
@@ -173,12 +173,12 @@ void modo_letra_a_letra(){
         
         char lectura = 0;
         pthread_mutex_lock(&mutex_morse);
-        if (simbolo_detectado != 0)
-        {
+        if (simbolo_detectado != 0) {
             lectura = simbolo_detectado;
             simbolo_detectado = 0; 
         }
         pthread_mutex_unlock(&mutex_morse);
+
         if (lectura != 0) {
             if (lectura == SIMBOLO_PUNTO) {
                 printf(".");
@@ -191,12 +191,10 @@ void modo_letra_a_letra(){
             else if (lectura == SIMBOLO_ESPACIO_LARGO){
                 // Obtenemos la letra final y el estado se reinicia solo
                 char letra_final = morse_obtener_resultado();
-                if (letra_final != '?' && !simbolo_desc_encontrado)
-                {
+                if (letra_final != '?' && !simbolo_desc_encontrado) {
                     printf(" -> [%c]\n", letra_final);
                 }
-                else
-                {
+                else {
                     printf(" -> [Símbolo no reconocido]\n");
                 }
                 simbolo_desc_encontrado = 0;
@@ -240,6 +238,7 @@ void modo_libre(){
             simbolo_detectado = 0;
         }
         pthread_mutex_unlock(&mutex_morse);
+
         if (lectura != 0) {
             if (lectura == SIMBOLO_PUNTO) {
                 morse_avanzar('.');
@@ -250,12 +249,10 @@ void modo_libre(){
             else if (lectura == SIMBOLO_ESPACIO_CORTO){
                 // Obtenemos la letra final y el estado se reinicia solo
                 char letra_final = morse_obtener_resultado();
-                if (letra_final != '?' && !simbolo_desc_encontrado)
-                {
+                if (letra_final != '?' && !simbolo_desc_encontrado) {
                     printf("%c", tolower(letra_final));
                 }
-                else
-                {
+                else {
                     printf("?");
                 }
                 simbolo_desc_encontrado = 0;
@@ -322,8 +319,7 @@ int main(int argc, char **argv)
     */
 
     struct gpiod_chip *chip = gpiod_chip_open("/dev/gpiochip0");
-    if (!chip)
-    {
+    if (!chip){
         perror("Error al abrir chip");
         return EXIT_FAILURE;
     }
@@ -343,13 +339,12 @@ int main(int argc, char **argv)
     if (!request)
     {
         perror("Error solicitud linea");
-        goto close_chip;
+        return 1;
     }
 
     // --- LANZAMIENTO DEL HILO DE INTERRUPCIONES ---
     pthread_t thread_id;
-    if (pthread_create(&thread_id, NULL, funcion_hilo_gpio, (void *)request) != 0)
-    {
+    if (pthread_create(&thread_id, NULL, funcion_hilo_gpio, (void *)request) != 0) {
         perror("Error al crear hilo");
         return 1;
     }
@@ -361,8 +356,7 @@ int main(int argc, char **argv)
        */
     int opcion_menu = 0;
     
-    while (1)
-    {
+    while (opcion_menu != '3') {
 
         mensaje_menu();
         printf("\n\nOpcion elegida: ");
@@ -380,77 +374,19 @@ int main(int argc, char **argv)
         }
         else if(opcion_menu == '3'){
             printf("Saliendo de la aplicacion\n");
-            break;
         }
     
     }
-    /*
-    while (1)
-    {
-        char lectura = 0;
-
-        mensaje_menu();
-        scanf(" %c"&opcion_menu); 
-        // leer si gpio tiene algo
-
-
-        if(opcion_menu == '1'){
-            printf("\nModo Letra a letra\n");
-
-            pthread_mutex_lock(&mutex_morse);
-            if (simbolo_detectado != 0)
-            {
-                lectura = simbolo_detectado;
-                simbolo_detectado = 0; // Consumimos el símbolo
-            }
-            pthread_mutex_unlock(&mutex_morse);
-
-            if (lectura != 0)
-            {
-                if (lectura == SIMBOLO_PUNTO)
-                {
-                    printf(".");
-                    morse_avanzar('.');
-                }
-                else if (lectura == SIMBOLO_RAYA)
-                {
-                    printf("-");
-                    morse_avanzar('-');
-                }
-                else if (lectura == SIMBOLO_ESPACIO)
-                {
-                    // Obtenemos la letra final y el estado se reinicia solo
-                    char letra_final = morse_obtener_resultado();
-                    if (letra_final != '?' && !simbolo_desc_encontrado)
-                    {
-                        printf(" -> [%c]\n", letra_final);
-                    }
-                    else
-                    {
-                        printf(" -> [Símbolo no reconocido]\n");
-                    }
-                    simbolo_desc_encontrado = 0;
-                }
-                else if (lectura == SIMBOLO_DESCONOCIDO)
-                {
-                    printf("?");
-                    simbolo_desc_encontrado = 1;
-                }
-                fflush(stdout);
-            }
-        }
-
-        // El main puede hacer otras cosas aquí sin bloquear la detección de Morse
-        usleep(10000);
-    }
-    */
+   
     /*
         LIMPIEZA
     */
+    continuar_ejecucion_hilo = 0;
+    pthread_join(thread_id, NULL); //espera terminacion del hilo
     gpiod_line_request_release(request);
-close_chip:
-    gpiod_line_config_free(line_cfg);
-    gpiod_line_settings_free(settings);
     gpiod_chip_close(chip);
+
+    printf("Aplicacion finalizada correctamente\n");
+
     return 0;
 }
