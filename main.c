@@ -41,15 +41,17 @@ struct termios oldt;
 
 // --- MENSAJES ----
 void mensaje_menu(){
-    printf("\n--- Menu MorseBerry --- \n");
+    printf("\n\n--- Menu MorseBerry --- \n");
     printf("Opciones: \n");
     printf("  1 -> Deteccion letra a letra\n");
     printf("  2 -> Modo libre\n");
-    printf("  3 -> Salir de aplicacion\n");
+    printf("  3 -> Prueba letras\n");
+    printf("  4 -> Salir de aplicacion");
 }
 void mensaje_formato_args()
 {
-    printf("\nFormato: ./main -g [gpio] -f [frecuencia]\n");
+    printf("Formato: ./main -g [gpio] -f [frecuencia]\n");
+    printf("Por ahora solo disponible opcion -g\n");
 }
 
 // ---- TIMEPO ----
@@ -274,6 +276,77 @@ void modo_libre(){
    restaurar_terminal();
 }
 
+/* Genera letra aleatorio A-Z*/
+char generar_char_random(){
+    return 'A' + rand() % 26;
+}
+
+void modo_prueba_letras(){
+    printf("\nModo prueba de letra: escribe correctamente las letras propuestas\n");
+    printf("Para volver al manu pulse ESC\n");
+    
+    activar_modo_raw();
+    int simbolo_desc_encontrado = 0;
+    char caracter_aleatorio = generar_char_random();
+    printf("Escribe %c : ", caracter_aleatorio);
+    fflush(stdout);
+
+    while(1){
+        // mirar si se ha pulsado ESC
+        char tecla;
+        if (read(STDIN_FILENO, &tecla, 1) > 0) {
+            if (tecla == 27) {  // ESC
+                break;
+            }
+        }
+
+        
+        char lectura = 0;
+        pthread_mutex_lock(&mutex_morse);
+        if (simbolo_detectado != 0) {
+            lectura = simbolo_detectado;
+            simbolo_detectado = 0; 
+        }
+        pthread_mutex_unlock(&mutex_morse);
+
+        if (lectura != 0) {
+            if (lectura == SIMBOLO_PUNTO) {
+                printf(".");
+                morse_avanzar('.');
+            }
+            else if (lectura == SIMBOLO_RAYA){
+                printf("-");
+                morse_avanzar('-');
+            }
+            else if (lectura == SIMBOLO_ESPACIO_LARGO){
+                // Obtenemos la letra final y el estado se reinicia solo
+                char letra_final = morse_obtener_resultado();
+                if (letra_final != '?' && !simbolo_desc_encontrado && caracter_aleatorio == letra_final) {
+                    printf(" -> [ACIERTO] - %c\n", letra_final);
+                }
+                else if (letra_final == '?' || simbolo_desc_encontrado){
+                    printf(" -> [FALLO] - Caracter escrito %c\n", '?');
+                }
+                else {
+                    printf(" -> [FALLO] - Caracter escrito %c\n", letra_final);
+                }
+                simbolo_desc_encontrado = 0;
+                caracter_aleatorio = generar_char_random();
+                printf("Escribe %c : ", caracter_aleatorio);
+            }
+            else if (lectura == SIMBOLO_DESCONOCIDO){
+                printf("?");
+                simbolo_desc_encontrado = 1;
+            }
+            fflush(stdout);
+        }
+
+        usleep(10000);
+    }
+
+   restaurar_terminal();
+
+}
 /*
     Compilacion:
         gcc main.c -o main -lgpiod -lpthread
@@ -287,6 +360,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    mensaje_formato_args();
     /*
         PARSEO COMANDOS
         opciones:
@@ -355,8 +429,10 @@ int main(int argc, char **argv)
            BUCLE PRINCIPAL INFINITO
        */
     int opcion_menu = 0;
+
+    //limpia el buffer
     
-    while (opcion_menu != '3') {
+    while (opcion_menu != '4') {
 
         mensaje_menu();
         printf("\n\nOpcion elegida: ");
@@ -373,6 +449,10 @@ int main(int argc, char **argv)
             opcion_menu = 0;
         }
         else if(opcion_menu == '3'){
+            modo_prueba_letras();
+            opcion_menu = 0;
+        }
+        else if(opcion_menu == '4'){
             printf("Saliendo de la aplicacion\n");
         }
     
