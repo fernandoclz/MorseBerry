@@ -486,30 +486,35 @@ int main(int argc, char **argv)
     int opcion_resaltada = 1;
     int ejecutar_opcion = 0;
 
-    activar_modo_raw(); // Activamos raw para poder usar teclado SSH en el menú también
+    activar_modo_raw(); // Activar teclado no bloqueante
 
     while (continuar_ejecucion_hilo) {
         
         dibujar_menu_interfaz(opcion_resaltada);
         ejecutar_opcion = 0;
 
-        // Bucle de espera de acción (Navegación del menú)
+        // Bucle de espera (lee Morse y Teclado a la vez)
         while(ejecutar_opcion == 0 && continuar_ejecucion_hilo) {
             
-            // 1. Leer teclado SSH (por si quieres usar flechas o enter desde PC)
-            char tecla;
+            // --- 1. LEER TECLADO SSH ---
+            char tecla = 0;
             if (read(STDIN_FILENO, &tecla, 1) > 0) {
-                if (tecla == 's' || tecla == 'S' || tecla == ' ') { // Simula pulso corto
+                if (tecla == ' ' || tecla == 's' || tecla == 'S') { 
+                    // Espacio o 's' simula pulso corto (Bajar en el menú)
                     opcion_resaltada = (opcion_resaltada % 4) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
-                } else if (tecla == '\n') { // Simula pulso largo
+                } 
+                else if (tecla == '\n' || tecla == '\r') { 
+                    // ENTER simula pulso largo (Aceptar)
                     ejecutar_opcion = opcion_resaltada;
-                } else if (tecla == 27) { // ESC para salir del todo
-                    ejecutar_opcion = 4;
+                } 
+                else if (tecla == 27) { 
+                    // Tecla ESC para salir directamente
+                    ejecutar_opcion = 4; 
                 }
             }
 
-            // 2. Leer manipulador Morse
+            // --- 2. LEER MANIPULADOR MORSE ---
             char lectura = 0;
             pthread_mutex_lock(&mutex_morse);
             if (simbolo_detectado != 0) {
@@ -525,15 +530,15 @@ int main(int argc, char **argv)
                     dibujar_menu_interfaz(opcion_resaltada);
                 } 
                 else if (lectura == SIMBOLO_MANTENER_PULSADO) {
-                    // Pulso largo: Seleccionar opción actual (ENTER)
+                    // Pulso largo: Seleccionar opción actual
                     ejecutar_opcion = opcion_resaltada;
                 }
             }
 
-            usleep(10000); // Pequeña pausa para no saturar CPU
+            usleep(10000); // Pausa de 10ms para no saturar la CPU al 100%
         }
 
-        // Ejecutar la opción seleccionada
+        // --- 3. EJECUTAR LA OPCIÓN ---
         if(ejecutar_opcion == 1){
             modo_letra_a_letra();
         }
@@ -544,8 +549,9 @@ int main(int argc, char **argv)
             modo_prueba_letras();
         }
         else if(ejecutar_opcion == 4){
-            printf("\nSaliendo de la aplicacion...\n");
-            continuar_ejecucion_hilo = 0; // Rompe el bucle principal
+            printf("\033[2J\033[H"); // Limpiar pantalla antes de salir
+            printf("Saliendo de MorseBerry...\n");
+            continuar_ejecucion_hilo = 0; 
         }
     }
 
