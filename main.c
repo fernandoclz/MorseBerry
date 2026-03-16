@@ -20,6 +20,7 @@
 #define TIEMPO_RAYA 300
 #define TIEMPO_ESPACIO 700
 #define DESVIACION 50
+#define TIEMPO_SALIDA 1500
 
 //SIMBOLOS
 #define SIMBOLO_PUNTO 1
@@ -27,6 +28,7 @@
 #define SIMBOLO_ESPACIO_CORTO 3     //fin de letra
 #define SIMBOLO_ESPACIO_LARGO 4     //fin palabra
 #define SIMBOLO_DESCONOCIDO 5
+#define SIMBOLO_MANTENER_PULSADO 6
 
 int morse_frecuency = FREQ;
 int morse_gpio = GPIO_PREDET;
@@ -40,14 +42,36 @@ pthread_mutex_t mutex_morse = PTHREAD_MUTEX_INITIALIZER;
 struct termios oldt;
 
 // --- MENSAJES ----
-void mensaje_menu(){
-    printf("\n\n--- Menu MorseBerry --- \n");
-    printf("Opciones: \n");
-    printf("  1 -> Deteccion letra a letra\n");
-    printf("  2 -> Modo libre\n");
-    printf("  3 -> Prueba letras\n");
-    printf("  4 -> Salir de aplicacion");
+void dibujar_menu_interfaz(int opcion_resaltada) {
+    // [I2C OLED]: Aquí llamarías a oled_clear() o similar.
+
+    // 2. DIBUJAR CABECERA
+    printf("--- MorseBerry ---\n\n");
+    // [I2C OLED]: oled_print("MorseBerry", x, y);
+
+    // 3. DIBUJAR OPCIONES CON RESALTE
+    const char* opciones[] = {
+        "1. Letra a letra",
+        "2. Modo libre",
+        "3. Prueba letras",
+        "4. Salir"
+    };
+
+    for (int i = 0; i < 4; i++) {
+        if ((i + 1) == opcion_resaltada) {
+            printf(" > %s < \n", opciones[i]); // Resaltado para SSH
+            // [I2C OLED]: oled_print_inverted(opciones[i]); // Texto con fondo blanco
+        } else {
+            printf("   %s   \n", opciones[i]);
+            // [I2C OLED]: oled_print_normal(opciones[i]);   // Texto normal
+        }
+    }
+    
+    printf("\n(Pulso corto: Bajar | Pulso largo: OK)\n");
+    fflush(stdout);
+    // [I2C OLED]: oled_display_update(); // Enviar buffer a la pantalla
 }
+
 void mensaje_formato_args()
 {
     printf("Formato: ./main -g [gpio] -f [frecuencia]\n");
@@ -115,20 +139,34 @@ void *funcion_hilo_gpio(void *arg)
                 }
             }
         }
-        else if (ret == 0 && pulsado == 0)  { 
-            // si no hay eventos y el boton no se pulsa se revisaa si hay espacio largo o corto
+        else if (ret == 0) { 
             long long tiempo_ahora = obtener_tiempo_actual();
-            if (TIEMPO_RAYA - DESVIACION <= tiempo_ahora - tiempo_sin_pulsar &&
-                        tiempo_ahora - tiempo_sin_pulsar <= TIEMPO_RAYA + DESVIACION) { // es espacio corto (fin de letra)
-                pthread_mutex_lock(&mutex_morse);
-                simbolo_detectado = SIMBOLO_ESPACIO_CORTO;
-                pthread_mutex_unlock(&mutex_morse);
+            
+            if (pulsado == 1) {
+                // NUEVO: Detectar si se está manteniendo pulsado más de 1.5s
+                if (tiempo_ahora - tiempo_pulsado >= TIEMPO_MANTENER) {
+                    pthread_mutex_lock(&mutex_morse);
+                    simbolo_detectado = SIMBOLO_MANTENER_PULSADO;
+                    pthread_mutex_unlock(&mutex_morse);
+                    
+                    // "Engañamos" al estado para no emitir múltiples señales seguidas
+                    pulsado = 0; 
+                    tiempo_sin_pulsar = tiempo_ahora;
+                }
             }
-            else if (tiempo_ahora - tiempo_sin_pulsar > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0) { // es espacio largo (fin de palabra)
-                pthread_mutex_lock(&mutex_morse);
-                simbolo_detectado = SIMBOLO_ESPACIO_LARGO;
-                tiempo_sin_pulsar = 0;
-                pthread_mutex_unlock(&mutex_morse);
+            else {
+                if (TIEMPO_RAYA - DESVIACION <= tiempo_ahora - tiempo_sin_pulsar &&
+                            tiempo_ahora - tiempo_sin_pulsar <= TIEMPO_RAYA + DESVIACION) { // es espacio corto (fin de letra)
+                    pthread_mutex_lock(&mutex_morse);
+                    simbolo_detectado = SIMBOLO_ESPACIO_CORTO;
+                    pthread_mutex_unlock(&mutex_morse);
+                }
+                else if (tiempo_ahora - tiempo_sin_pulsar > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0) { // es espacio largo (fin de palabra)
+                    pthread_mutex_lock(&mutex_morse);
+                    simbolo_detectado = SIMBOLO_ESPACIO_LARGO;
+                    tiempo_sin_pulsar = 0;
+                    pthread_mutex_unlock(&mutex_morse);
+                }
             }
         }
     }
@@ -182,7 +220,11 @@ void modo_letra_a_letra(){
         pthread_mutex_unlock(&mutex_morse);
 
         if (lectura != 0) {
-            if (lectura == SIMBOLO_PUNTO) {
+            if (lectura == SIMBOLO_MANTENER_PULSADO) {
+                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
+                break; // Sale del bucle del modo y vuelve al while del main()
+            }
+            else if (lectura == SIMBOLO_PUNTO) {
                 printf(".");
                 morse_avanzar('.');
             }
@@ -242,7 +284,11 @@ void modo_libre(){
         pthread_mutex_unlock(&mutex_morse);
 
         if (lectura != 0) {
-            if (lectura == SIMBOLO_PUNTO) {
+            if (lectura == SIMBOLO_MANTENER_PULSADO) {
+                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
+                break; // Sale del bucle del modo y vuelve al while del main()
+            }
+            else if (lectura == SIMBOLO_PUNTO) {
                 morse_avanzar('.');
             }
             else if (lectura == SIMBOLO_RAYA){
@@ -310,7 +356,11 @@ void modo_prueba_letras(){
         pthread_mutex_unlock(&mutex_morse);
 
         if (lectura != 0) {
-            if (lectura == SIMBOLO_PUNTO) {
+            if (lectura == SIMBOLO_MANTENER_PULSADO) {
+                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
+                break; // Sale del bucle del modo y vuelve al while del main()
+            }
+            else if (lectura == SIMBOLO_PUNTO) {
                 printf(".");
                 morse_avanzar('.');
             }
@@ -432,36 +482,81 @@ int main(int argc, char **argv)
 
     //limpia el buffer
     
-    while (opcion_menu != '4') {
+    int opcion_resaltada = 1;
+    int ejecutar_opcion = 0;
 
-        mensaje_menu();
-        printf("\n\nOpcion elegida: ");
-        while(opcion_menu == 0){
-            scanf(" %c", &opcion_menu);
-        } 
+    activar_modo_raw(); // Activamos raw para poder usar teclado SSH en el menú también
 
-        if(opcion_menu == '1'){
+    while (continuar_ejecucion_hilo) {
+        
+        dibujar_menu_interfaz(opcion_resaltada);
+        ejecutar_opcion = 0;
+
+        // Bucle de espera de acción (Navegación del menú)
+        while(ejecutar_opcion == 0 && continuar_ejecucion_hilo) {
+            
+            // 1. Leer teclado SSH (por si quieres usar flechas o enter desde PC)
+            char tecla;
+            if (read(STDIN_FILENO, &tecla, 1) > 0) {
+                if (tecla == 's' || tecla == 'S' || tecla == ' ') { // Simula pulso corto
+                    opcion_resaltada = (opcion_resaltada % 4) + 1;
+                    dibujar_menu_interfaz(opcion_resaltada);
+                } else if (tecla == '\n') { // Simula pulso largo
+                    ejecutar_opcion = opcion_resaltada;
+                } else if (tecla == 27) { // ESC para salir del todo
+                    ejecutar_opcion = 4;
+                }
+            }
+
+            // 2. Leer manipulador Morse
+            char lectura = 0;
+            pthread_mutex_lock(&mutex_morse);
+            if (simbolo_detectado != 0) {
+                lectura = simbolo_detectado;
+                simbolo_detectado = 0;
+            }
+            pthread_mutex_unlock(&mutex_morse);
+
+            if (lectura != 0) {
+                if (lectura == SIMBOLO_PUNTO || lectura == SIMBOLO_RAYA) {
+                    // Pulso corto: Avanzar a la siguiente opción cíclicamente
+                    opcion_resaltada = (opcion_resaltada % 4) + 1;
+                    dibujar_menu_interfaz(opcion_resaltada);
+                } 
+                else if (lectura == SIMBOLO_MANTENER_PULSADO) {
+                    // Pulso largo: Seleccionar opción actual (ENTER)
+                    ejecutar_opcion = opcion_resaltada;
+                }
+            }
+
+            usleep(10000); // Pequeña pausa para no saturar CPU
+        }
+
+        // Ejecutar la opción seleccionada
+        if(ejecutar_opcion == 1){
             modo_letra_a_letra();
-            opcion_menu = 0;
         }
-        else if(opcion_menu == '2'){
+        else if(ejecutar_opcion == 2){
             modo_libre();
-            opcion_menu = 0;
         }
-        else if(opcion_menu == '3'){
+        else if(ejecutar_opcion == 3){
             modo_prueba_letras();
-            opcion_menu = 0;
         }
-        else if(opcion_menu == '4'){
-            printf("Saliendo de la aplicacion\n");
+        else if(ejecutar_opcion == 4){
+            printf("\nSaliendo de la aplicacion...\n");
+            continuar_ejecucion_hilo = 0; // Rompe el bucle principal
         }
-    
     }
+
+    restaurar_terminal();
    
     /*
         LIMPIEZA
     */
-    continuar_ejecucion_hilo = 0;
+    continuar_ejecucion_hilo = 0;if (lectura == SIMBOLO_MANTENER_PULSADO) {
+                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
+                break; // Sale del bucle del modo y vuelve al while del main()
+            }
     pthread_join(thread_id, NULL); //espera terminacion del hilo
     gpiod_line_request_release(request);
     gpiod_chip_close(chip);
