@@ -20,7 +20,7 @@
 #define TIEMPO_RAYA 300
 #define TIEMPO_ESPACIO 700
 #define DESVIACION 50
-#define TIEMPO_SALIDA 1500
+#define TIEMPO_MANTENER 1500
 
 //SIMBOLOS
 #define SIMBOLO_PUNTO 1
@@ -553,10 +553,7 @@ int main(int argc, char **argv)
     /*
         LIMPIEZA
     */
-    continuar_ejecucion_hilo = 0;if (lectura == SIMBOLO_MANTENER_PULSADO) {
-                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
-                break; // Sale del bucle del modo y vuelve al while del main()
-            }
+    continuar_ejecucion_hilo = 0;
     pthread_join(thread_id, NULL); //espera terminacion del hilo
     gpiod_line_request_release(request);
     gpiod_chip_close(chip);
