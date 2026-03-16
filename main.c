@@ -43,6 +43,7 @@ struct termios oldt;
 
 // --- MENSAJES ----
 void dibujar_menu_interfaz(int opcion_resaltada) {
+    printf("\033[2J\033[H");
     // [I2C OLED]: Aquí llamarías a oled_clear() o similar.
 
     // 2. DIBUJAR CABECERA
