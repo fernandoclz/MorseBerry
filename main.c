@@ -10,7 +10,7 @@
 #include <fcntl.h>
 
 #include "traductor_morse.h"
-
+#include "pantalla_oled.h"
 // CONFIGURACIONES POR DEFECTO
 #define FREQ 100
 #define GPIO_PREDET 17
@@ -44,11 +44,12 @@ struct termios oldt;
 // --- MENSAJES ----
 void dibujar_menu_interfaz(int opcion_resaltada) {
     printf("\033[2J\033[H");
-    // [I2C OLED]: Aquí llamarías a oled_clear() o similar.
+    oled_limpiar();
 
     // 2. DIBUJAR CABECERA
     printf("--- MorseBerry ---\n\n");
-    // [I2C OLED]: oled_print("MorseBerry", x, y);
+    oled_posicionar_cursor(10, 0); // X=10, Y=0 (Página 0)
+    oled_imprimir("--- MORSEBERRY ---");
 
     // 3. DIBUJAR OPCIONES CON RESALTE
     const char* opciones[] = {
@@ -58,17 +59,20 @@ void dibujar_menu_interfaz(int opcion_resaltada) {
         "4. Salir"
     };
 
+    char buffer[20];
     for (int i = 0; i < 4; i++) {
+        oled_posicionar_cursor(0, 2 + i);
         if ((i + 1) == opcion_resaltada) {
             printf(" > %s < \n", opciones[i]); // Resaltado para SSH
-            // [I2C OLED]: oled_print_inverted(opciones[i]); // Texto con fondo blanco
+            sprintf(buffer, "> OPCION %d", i+1);
         } else {
             printf("   %s   \n", opciones[i]);
-            // [I2C OLED]: oled_print_normal(opciones[i]);   // Texto normal
+            sprintf(buffer, "  OPCION %d", i+1);
         }
+        oled_imprimir(buffer);
     }
     
-    printf("\n(Pulso corto: Bajar | Pulso largo: OK)\n");
+    printf("\n(Pulso corto: Bajar | Mantener pulsado: OK)\n");
     fflush(stdout);
     // [I2C OLED]: oled_display_update(); // Enviar buffer a la pantalla
 }
@@ -191,14 +195,19 @@ void activar_modo_raw() {
 }
 
 void restaurar_terminal() {
+    // Restaurar la configuración original de la terminal
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    
+    // Quitar el modo no bloqueante
+    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, flags & ~O_NONBLOCK);
 }
 
 //---- MODOS DE APLICACION ---
 // muestra letra a letra mostrando los puntos y rayas
 void modo_letra_a_letra(){
     printf("\nModo Letra a letra\n");
-    printf("Para volver al manu pulse ESC\n");
+    printf("Para volver al menu pulse ESC o mantenga pulsado\n");
     
     activar_modo_raw();
     int simbolo_desc_encontrado = 0;
@@ -260,7 +269,7 @@ void modo_letra_a_letra(){
 
 void modo_libre(){
     printf("\nModo Libre\n");
-    printf("Para volver al manu pulse ESC\n");
+    printf("Para volver al menu pulse ESC o mantenga pulsado\n");
     
     activar_modo_raw();
     int simbolo_desc_encontrado = 0;
@@ -330,7 +339,7 @@ char generar_char_random(){
 
 void modo_prueba_letras(){
     printf("\nModo prueba de letra: escribe correctamente las letras propuestas\n");
-    printf("Para volver al manu pulse ESC\n");
+    printf("Para volver al menu pulse ESC o mantenga pulsado\n");
     
     activar_modo_raw();
     int simbolo_desc_encontrado = 0;
@@ -467,6 +476,9 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    printf("Iniciando mi driver OLED por hardware...\n");
+    oled_iniciar(); // <--- Aquí llamas a tu driver
+
     // --- LANZAMIENTO DEL HILO DE INTERRUPCIONES ---
     pthread_t thread_id;
     if (pthread_create(&thread_id, NULL, funcion_hilo_gpio, (void *)request) != 0) {
@@ -564,7 +576,7 @@ int main(int argc, char **argv)
     pthread_join(thread_id, NULL); //espera terminacion del hilo
     gpiod_line_request_release(request);
     gpiod_chip_close(chip);
-
+    oled_cerrar();
     printf("Aplicacion finalizada correctamente\n");
 
     return 0;
