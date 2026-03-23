@@ -572,11 +572,9 @@ int main(int argc, char **argv)
     int opcion_resaltada = 1;
     int ejecutar_opcion = 0;
 
-    activar_modo_raw(); // Activar teclado no bloqueante
-
     while (continuar_ejecucion_hilo)
     {
-
+        activar_modo_raw(); // Activar teclado no bloqueante
         dibujar_menu_interfaz(opcion_resaltada);
         ejecutar_opcion = 0;
 
@@ -653,9 +651,8 @@ int main(int argc, char **argv)
             printf("Saliendo de MorseBerry...\n");
             continuar_ejecucion_hilo = 0;
         }
+        restaurar_terminal();
     }
-
-    restaurar_terminal();
 
     /*
         LIMPIEZA
