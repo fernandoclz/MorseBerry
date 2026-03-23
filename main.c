@@ -133,28 +133,33 @@ void *funcion_hilo_gpio(void *arg)
                     espacio_corto_emitido = 0;
                 }
                 else if (tipo == GPIOD_EDGE_EVENT_RISING_EDGE)
-                { // detecta flanco subida -> cuando se deja de pulsar
+                {
                     long long tiempo_ahora = obtener_tiempo_actual();
                     long long duracion_pulsacion = tiempo_ahora - tiempo_pulsado;
                     tiempo_sin_pulsar = obtener_tiempo_actual();
-                    pulsado = 0;
 
-                    pthread_mutex_lock(&mutex_morse);
-                    if (TIEMPO_PUNTO - DESVIACION <= duracion_pulsacion &&
-                        duracion_pulsacion <= TIEMPO_PUNTO + DESVIACION)
-                    { // es punto
-                        simbolo_detectado = SIMBOLO_PUNTO;
+                    // SOLUCIÓN: Solo procesar si realmente estábamos en estado "pulsado".
+                    // Esto evita que se sobrescriba la señal de salida.
+                    if (pulsado == 1)
+                    {
+                        pulsado = 0;
+                        pthread_mutex_lock(&mutex_morse);
+                        if (TIEMPO_PUNTO - DESVIACION <= duracion_pulsacion &&
+                            duracion_pulsacion <= TIEMPO_PUNTO + DESVIACION)
+                        {
+                            simbolo_detectado = SIMBOLO_PUNTO;
+                        }
+                        else if (TIEMPO_RAYA - DESVIACION <= duracion_pulsacion &&
+                                 duracion_pulsacion <= TIEMPO_RAYA + DESVIACION)
+                        {
+                            simbolo_detectado = SIMBOLO_RAYA;
+                        }
+                        else
+                        {
+                            simbolo_detectado = SIMBOLO_DESCONOCIDO;
+                        }
+                        pthread_mutex_unlock(&mutex_morse);
                     }
-                    else if (TIEMPO_RAYA - DESVIACION <= duracion_pulsacion &&
-                             duracion_pulsacion <= TIEMPO_RAYA + DESVIACION)
-                    { // es raya
-                        simbolo_detectado = SIMBOLO_RAYA;
-                    }
-                    else
-                    { // simbolo desconocido
-                        simbolo_detectado = SIMBOLO_DESCONOCIDO;
-                    }
-                    pthread_mutex_unlock(&mutex_morse);
                 }
             }
         }
