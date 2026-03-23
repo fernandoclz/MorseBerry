@@ -15,34 +15,35 @@
 #define FREQ 100
 #define GPIO_PREDET 17
 
-//TIEMPOS POR DEFECTO 
+// TIEMPOS POR DEFECTO
 #define TIEMPO_PUNTO 100
 #define TIEMPO_RAYA 300
 #define TIEMPO_ESPACIO 700
 #define DESVIACION 50
 #define TIEMPO_MANTENER 1500
 
-//SIMBOLOS
+// SIMBOLOS
 #define SIMBOLO_PUNTO 1
 #define SIMBOLO_RAYA 2
-#define SIMBOLO_ESPACIO_CORTO 3     //fin de letra
-#define SIMBOLO_ESPACIO_LARGO 4     //fin palabra
+#define SIMBOLO_ESPACIO_CORTO 3 // fin de letra
+#define SIMBOLO_ESPACIO_LARGO 4 // fin palabra
 #define SIMBOLO_DESCONOCIDO 5
 #define SIMBOLO_MANTENER_PULSADO 6
 
 int morse_frecuency = FREQ;
 int morse_gpio = GPIO_PREDET;
-int continuar_ejecucion_hilo = 1; //para indicar al hilo cuando se cierra aplicacion
+int continuar_ejecucion_hilo = 1; // para indicar al hilo cuando se cierra aplicacion
 
 // variables compartidas para hilo de GPIO
 volatile char simbolo_detectado = 0; // 0 = .   1 = -    2 = espacio
 pthread_mutex_t mutex_morse = PTHREAD_MUTEX_INITIALIZER;
 
-//restaurar la terminal al salir
+// restaurar la terminal al salir
 struct termios oldt;
 
 // --- MENSAJES ----
-void dibujar_menu_interfaz(int opcion_resaltada) {
+void dibujar_menu_interfaz(int opcion_resaltada)
+{
     printf("\033[2J\033[H");
     oled_limpiar();
 
@@ -52,26 +53,29 @@ void dibujar_menu_interfaz(int opcion_resaltada) {
     oled_imprimir("--- MORSEBERRY ---");
 
     // 3. DIBUJAR OPCIONES CON RESALTE
-    const char* opciones[] = {
+    const char *opciones[] = {
         "1. Letra a letra",
         "2. Modo libre",
         "3. Prueba letras",
-        "4. Salir"
-    };
+        "4. Salir"};
 
     char buffer[20];
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++)
+    {
         oled_posicionar_cursor(0, 2 + i);
-        if ((i + 1) == opcion_resaltada) {
+        if ((i + 1) == opcion_resaltada)
+        {
             printf(" > %s < \n", opciones[i]); // Resaltado para SSH
-            sprintf(buffer, "> OPCION %d", i+1);
-        } else {
+            sprintf(buffer, "> OPCION %d", i + 1);
+        }
+        else
+        {
             printf("   %s   \n", opciones[i]);
-            sprintf(buffer, "  OPCION %d", i+1);
+            sprintf(buffer, "  OPCION %d", i + 1);
         }
         oled_imprimir(buffer);
     }
-    
+
     printf("\n(Pulso corto: Bajar | Mantener pulsado: OK)\n");
     fflush(stdout);
     // [I2C OLED]: oled_display_update(); // Enviar buffer a la pantalla
@@ -105,24 +109,31 @@ void *funcion_hilo_gpio(void *arg)
     long long tiempo_pulsado = 0;
     long long tiempo_sin_pulsar = obtener_tiempo_actual();
     int pulsado = 0;
+    int espacio_corto_emitido = 0;
     int ret;
 
-    while (continuar_ejecucion_hilo){
-        //espera 100ms viendo si se produce evento se subida o bajada
+    while (continuar_ejecucion_hilo)
+    {
+        // espera 100ms viendo si se produce evento se subida o bajada
         ret = gpiod_line_request_wait_edge_events(request, 100000000);
 
-        if (ret > 0) {
-            if (gpiod_line_request_read_edge_events(request, buffer, 1) > 0) {
-                //sacamos el tipo del evento
+        if (ret > 0)
+        {
+            if (gpiod_line_request_read_edge_events(request, buffer, 1) > 0)
+            {
+                // sacamos el tipo del evento
                 event = gpiod_edge_event_buffer_get_event(buffer, 0);
                 int tipo = gpiod_edge_event_get_event_type(event);
 
-                //se actua segun el evento sea de bajada o subida
-                if (tipo == GPIOD_EDGE_EVENT_FALLING_EDGE) { // detecta flanco de bajada -> cuando se pulsa
+                // se actua segun el evento sea de bajada o subida
+                if (tipo == GPIOD_EDGE_EVENT_FALLING_EDGE)
+                { // detecta flanco de bajada -> cuando se pulsa
                     tiempo_pulsado = obtener_tiempo_actual();
                     pulsado = 1;
+                    espacio_corto_emitido = 0;
                 }
-                else if (tipo == GPIOD_EDGE_EVENT_RISING_EDGE){ // detecta flanco subida -> cuando se deja de pulsar
+                else if (tipo == GPIOD_EDGE_EVENT_RISING_EDGE)
+                { // detecta flanco subida -> cuando se deja de pulsar
                     long long tiempo_ahora = obtener_tiempo_actual();
                     long long duracion_pulsacion = tiempo_ahora - tiempo_pulsado;
                     tiempo_sin_pulsar = obtener_tiempo_actual();
@@ -130,47 +141,64 @@ void *funcion_hilo_gpio(void *arg)
 
                     pthread_mutex_lock(&mutex_morse);
                     if (TIEMPO_PUNTO - DESVIACION <= duracion_pulsacion &&
-                        duracion_pulsacion <= TIEMPO_PUNTO + DESVIACION) { // es punto
+                        duracion_pulsacion <= TIEMPO_PUNTO + DESVIACION)
+                    { // es punto
                         simbolo_detectado = SIMBOLO_PUNTO;
                     }
                     else if (TIEMPO_RAYA - DESVIACION <= duracion_pulsacion &&
-                             duracion_pulsacion <= TIEMPO_RAYA + DESVIACION){ // es raya
+                             duracion_pulsacion <= TIEMPO_RAYA + DESVIACION)
+                    { // es raya
                         simbolo_detectado = SIMBOLO_RAYA;
                     }
-                    else{    //simbolo desconocido
+                    else
+                    { // simbolo desconocido
                         simbolo_detectado = SIMBOLO_DESCONOCIDO;
                     }
                     pthread_mutex_unlock(&mutex_morse);
                 }
             }
         }
-        else if (ret == 0) { 
+        else if (ret == 0)
+        {
             long long tiempo_ahora = obtener_tiempo_actual();
-            
-            if (pulsado == 1) {
+
+            if (pulsado == 1)
+            {
                 // NUEVO: Detectar si se está manteniendo pulsado más de 1.5s
-                if (tiempo_ahora - tiempo_pulsado >= TIEMPO_MANTENER) {
+                if (tiempo_ahora - tiempo_pulsado >= TIEMPO_MANTENER)
+                {
                     pthread_mutex_lock(&mutex_morse);
                     simbolo_detectado = SIMBOLO_MANTENER_PULSADO;
                     pthread_mutex_unlock(&mutex_morse);
-                    
+
                     // "Engañamos" al estado para no emitir múltiples señales seguidas
-                    pulsado = 0; 
+                    pulsado = 0;
                     tiempo_sin_pulsar = tiempo_ahora;
                 }
             }
-            else {
-                if (TIEMPO_RAYA - DESVIACION <= tiempo_ahora - tiempo_sin_pulsar &&
-                            tiempo_ahora - tiempo_sin_pulsar <= TIEMPO_RAYA + DESVIACION) { // es espacio corto (fin de letra)
+            else
+            {
+                long long tiempo_inactivo = tiempo_ahora - tiempo_sin_pulsar;
+
+                // Evaluamos el espacio largo primero (fin de palabra)
+                if (tiempo_inactivo > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0)
+                {
+                    pthread_mutex_lock(&mutex_morse);
+                    simbolo_detectado = SIMBOLO_ESPACIO_LARGO;
+                    tiempo_sin_pulsar = 0; // Esto evita que vuelva a entrar
+                    pthread_mutex_unlock(&mutex_morse);
+                }
+                // Evaluamos el espacio corto (fin de letra) asegurándonos de emitirlo solo UNA vez
+                else if (tiempo_inactivo >= (TIEMPO_RAYA - DESVIACION) &&
+                         tiempo_sin_pulsar != 0 &&
+                         espacio_corto_emitido == 0)
+                {
+
                     pthread_mutex_lock(&mutex_morse);
                     simbolo_detectado = SIMBOLO_ESPACIO_CORTO;
                     pthread_mutex_unlock(&mutex_morse);
-                }
-                else if (tiempo_ahora - tiempo_sin_pulsar > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0) { // es espacio largo (fin de palabra)
-                    pthread_mutex_lock(&mutex_morse);
-                    simbolo_detectado = SIMBOLO_ESPACIO_LARGO;
-                    tiempo_sin_pulsar = 0;
-                    pthread_mutex_unlock(&mutex_morse);
+
+                    espacio_corto_emitido = 1; // MARCAMOS COMO EMITIDO
                 }
             }
         }
@@ -182,22 +210,24 @@ void *funcion_hilo_gpio(void *arg)
 
 // ---- TERMINAL ----
 // se configura para que pueda leer el ESC sin necesidad de esperar al ENTER
-void activar_modo_raw() {
+void activar_modo_raw()
+{
     struct termios newt;
 
-    tcgetattr(STDIN_FILENO, &oldt); 
+    tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
 
-    newt.c_lflag &= ~(ICANON | ECHO); 
+    newt.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK); //lectura no bloqueante
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK); // lectura no bloqueante
 }
 
-void restaurar_terminal() {
+void restaurar_terminal()
+{
     // Restaurar la configuración original de la terminal
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    
+
     // Quitar el modo no bloqueante
     int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
     fcntl(STDIN_FILENO, F_SETFL, flags & ~O_NONBLOCK);
@@ -205,81 +235,22 @@ void restaurar_terminal() {
 
 //---- MODOS DE APLICACION ---
 // muestra letra a letra mostrando los puntos y rayas
-void modo_letra_a_letra(){
+void modo_letra_a_letra()
+{
     printf("\nModo Letra a letra\n");
     printf("Para volver al menu pulse ESC o mantenga pulsado\n");
-    
+
     activar_modo_raw();
     int simbolo_desc_encontrado = 0;
 
-    while(1){
+    while (1)
+    {
         // mirar si se ha pulsado ESC
         char tecla;
-        if (read(STDIN_FILENO, &tecla, 1) > 0) {
-            if (tecla == 27) {  // ESC
-                break;
-            }
-        }
-        
-        char lectura = 0;
-        pthread_mutex_lock(&mutex_morse);
-        if (simbolo_detectado != 0) {
-            lectura = simbolo_detectado;
-            simbolo_detectado = 0; 
-        }
-        pthread_mutex_unlock(&mutex_morse);
-
-        if (lectura != 0) {
-            if (lectura == SIMBOLO_MANTENER_PULSADO) {
-                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
-                break; // Sale del bucle del modo y vuelve al while del main()
-            }
-            else if (lectura == SIMBOLO_PUNTO) {
-                printf(".");
-                morse_avanzar('.');
-            }
-            else if (lectura == SIMBOLO_RAYA){
-                printf("-");
-                morse_avanzar('-');
-            }
-            else if (lectura == SIMBOLO_ESPACIO_LARGO){
-                // Obtenemos la letra final y el estado se reinicia solo
-                char letra_final = morse_obtener_resultado();
-                if (letra_final != '?' && !simbolo_desc_encontrado) {
-                    printf(" -> [%c]\n", letra_final);
-                }
-                else {
-                    printf(" -> [Símbolo no reconocido]\n");
-                }
-                simbolo_desc_encontrado = 0;
-            }
-            else if (lectura == SIMBOLO_DESCONOCIDO){
-                printf("?");
-                simbolo_desc_encontrado = 1;
-            }
-            fflush(stdout);
-        }
-
-        usleep(10000);
-    }
-
-   restaurar_terminal();
-
-}
-
-void modo_libre(){
-    printf("\nModo Libre\n");
-    printf("Para volver al menu pulse ESC o mantenga pulsado\n");
-    
-    activar_modo_raw();
-    int simbolo_desc_encontrado = 0;
-
-    
-    while(1){
-        // mirar si se ha pulsado ESC
-        char tecla;
-        if (read(STDIN_FILENO, &tecla, 1) > 0) {
-            if (tecla == 27) {  // ESC
+        if (read(STDIN_FILENO, &tecla, 1) > 0)
+        {
+            if (tecla == 27)
+            { // ESC
                 break;
             }
         }
@@ -293,33 +264,39 @@ void modo_libre(){
         }
         pthread_mutex_unlock(&mutex_morse);
 
-        if (lectura != 0) {
-            if (lectura == SIMBOLO_MANTENER_PULSADO) {
+        if (lectura != 0)
+        {
+            if (lectura == SIMBOLO_MANTENER_PULSADO)
+            {
                 // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
                 break; // Sale del bucle del modo y vuelve al while del main()
             }
-            else if (lectura == SIMBOLO_PUNTO) {
+            else if (lectura == SIMBOLO_PUNTO)
+            {
+                printf(".");
                 morse_avanzar('.');
             }
-            else if (lectura == SIMBOLO_RAYA){
+            else if (lectura == SIMBOLO_RAYA)
+            {
+                printf("-");
                 morse_avanzar('-');
             }
-            else if (lectura == SIMBOLO_ESPACIO_CORTO){
+            else if (lectura == SIMBOLO_ESPACIO_LARGO)
+            {
                 // Obtenemos la letra final y el estado se reinicia solo
                 char letra_final = morse_obtener_resultado();
-                if (letra_final != '?' && !simbolo_desc_encontrado) {
-                    printf("%c", tolower(letra_final));
+                if (letra_final != '?' && !simbolo_desc_encontrado)
+                {
+                    printf(" -> [%c]\n", letra_final);
                 }
-                else {
-                    printf("?");
+                else
+                {
+                    printf(" -> [Símbolo no reconocido]\n");
                 }
                 simbolo_desc_encontrado = 0;
             }
-            else if (lectura == SIMBOLO_ESPACIO_LARGO){
-                printf(" ");
-                simbolo_desc_encontrado = 0;
-            }
-            else if (lectura == SIMBOLO_DESCONOCIDO){
+            else if (lectura == SIMBOLO_DESCONOCIDO)
+            {
                 printf("?");
                 simbolo_desc_encontrado = 1;
             }
@@ -329,72 +306,163 @@ void modo_libre(){
         usleep(10000);
     }
 
-   restaurar_terminal();
+    restaurar_terminal();
+}
+
+void modo_libre()
+{
+    printf("\nModo Libre\n");
+    printf("Para volver al menu pulse ESC o mantenga pulsado\n");
+
+    activar_modo_raw();
+    int simbolo_desc_encontrado = 0;
+
+    while (1)
+    {
+        // mirar si se ha pulsado ESC
+        char tecla;
+        if (read(STDIN_FILENO, &tecla, 1) > 0)
+        {
+            if (tecla == 27)
+            { // ESC
+                break;
+            }
+        }
+
+        char lectura = 0;
+        pthread_mutex_lock(&mutex_morse);
+        if (simbolo_detectado != 0)
+        {
+            lectura = simbolo_detectado;
+            simbolo_detectado = 0;
+        }
+        pthread_mutex_unlock(&mutex_morse);
+
+        if (lectura != 0)
+        {
+            if (lectura == SIMBOLO_MANTENER_PULSADO)
+            {
+                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
+                break; // Sale del bucle del modo y vuelve al while del main()
+            }
+            else if (lectura == SIMBOLO_PUNTO)
+            {
+                morse_avanzar('.');
+            }
+            else if (lectura == SIMBOLO_RAYA)
+            {
+                morse_avanzar('-');
+            }
+            else if (lectura == SIMBOLO_ESPACIO_CORTO)
+            {
+                // Obtenemos la letra final y el estado se reinicia solo
+                char letra_final = morse_obtener_resultado();
+                if (letra_final != '?' && !simbolo_desc_encontrado)
+                {
+                    printf("%c", tolower(letra_final));
+                }
+                else
+                {
+                    printf("?");
+                }
+                simbolo_desc_encontrado = 0;
+            }
+            else if (lectura == SIMBOLO_ESPACIO_LARGO)
+            {
+                printf(" ");
+                simbolo_desc_encontrado = 0;
+            }
+            else if (lectura == SIMBOLO_DESCONOCIDO)
+            {
+                printf("?");
+                simbolo_desc_encontrado = 1;
+            }
+            fflush(stdout);
+        }
+
+        usleep(10000);
+    }
+
+    restaurar_terminal();
 }
 
 /* Genera letra aleatorio A-Z*/
-char generar_char_random(){
+char generar_char_random()
+{
     return 'A' + rand() % 26;
 }
 
-void modo_prueba_letras(){
+void modo_prueba_letras()
+{
     printf("\nModo prueba de letra: escribe correctamente las letras propuestas\n");
     printf("Para volver al menu pulse ESC o mantenga pulsado\n");
-    
+
     activar_modo_raw();
     int simbolo_desc_encontrado = 0;
     char caracter_aleatorio = generar_char_random();
     printf("Escribe %c : ", caracter_aleatorio);
     fflush(stdout);
 
-    while(1){
+    while (1)
+    {
         // mirar si se ha pulsado ESC
         char tecla;
-        if (read(STDIN_FILENO, &tecla, 1) > 0) {
-            if (tecla == 27) {  // ESC
+        if (read(STDIN_FILENO, &tecla, 1) > 0)
+        {
+            if (tecla == 27)
+            { // ESC
                 break;
             }
         }
 
-        
         char lectura = 0;
         pthread_mutex_lock(&mutex_morse);
-        if (simbolo_detectado != 0) {
+        if (simbolo_detectado != 0)
+        {
             lectura = simbolo_detectado;
-            simbolo_detectado = 0; 
+            simbolo_detectado = 0;
         }
         pthread_mutex_unlock(&mutex_morse);
 
-        if (lectura != 0) {
-            if (lectura == SIMBOLO_MANTENER_PULSADO) {
+        if (lectura != 0)
+        {
+            if (lectura == SIMBOLO_MANTENER_PULSADO)
+            {
                 // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
                 break; // Sale del bucle del modo y vuelve al while del main()
             }
-            else if (lectura == SIMBOLO_PUNTO) {
+            else if (lectura == SIMBOLO_PUNTO)
+            {
                 printf(".");
                 morse_avanzar('.');
             }
-            else if (lectura == SIMBOLO_RAYA){
+            else if (lectura == SIMBOLO_RAYA)
+            {
                 printf("-");
                 morse_avanzar('-');
             }
-            else if (lectura == SIMBOLO_ESPACIO_LARGO){
+            else if (lectura == SIMBOLO_ESPACIO_LARGO)
+            {
                 // Obtenemos la letra final y el estado se reinicia solo
                 char letra_final = morse_obtener_resultado();
-                if (letra_final != '?' && !simbolo_desc_encontrado && caracter_aleatorio == letra_final) {
+                if (letra_final != '?' && !simbolo_desc_encontrado && caracter_aleatorio == letra_final)
+                {
                     printf(" -> [ACIERTO] - %c\n", letra_final);
                 }
-                else if (letra_final == '?' || simbolo_desc_encontrado){
+                else if (letra_final == '?' || simbolo_desc_encontrado)
+                {
                     printf(" -> [FALLO] - Caracter escrito %c\n", '?');
                 }
-                else {
+                else
+                {
                     printf(" -> [FALLO] - Caracter escrito %c\n", letra_final);
                 }
                 simbolo_desc_encontrado = 0;
                 caracter_aleatorio = generar_char_random();
                 printf("Escribe %c : ", caracter_aleatorio);
             }
-            else if (lectura == SIMBOLO_DESCONOCIDO){
+            else if (lectura == SIMBOLO_DESCONOCIDO)
+            {
                 printf("?");
                 simbolo_desc_encontrado = 1;
             }
@@ -404,8 +472,7 @@ void modo_prueba_letras(){
         usleep(10000);
     }
 
-   restaurar_terminal();
-
+    restaurar_terminal();
 }
 /*
     Compilacion:
@@ -453,7 +520,8 @@ int main(int argc, char **argv)
     */
 
     struct gpiod_chip *chip = gpiod_chip_open("/dev/gpiochip0");
-    if (!chip){
+    if (!chip)
+    {
         perror("Error al abrir chip");
         return EXIT_FAILURE;
     }
@@ -481,67 +549,78 @@ int main(int argc, char **argv)
 
     // --- LANZAMIENTO DEL HILO DE INTERRUPCIONES ---
     pthread_t thread_id;
-    if (pthread_create(&thread_id, NULL, funcion_hilo_gpio, (void *)request) != 0) {
+    if (pthread_create(&thread_id, NULL, funcion_hilo_gpio, (void *)request) != 0)
+    {
         perror("Error al crear hilo");
         return 1;
     }
 
     printf("--- ENTRNADOR MORSE INICIADO (GPIO: %d) ---\n", morse_gpio);
-   
+
     /*
            BUCLE PRINCIPAL INFINITO
        */
     int opcion_menu = 0;
 
-    //limpia el buffer
-    
+    // limpia el buffer
+
     int opcion_resaltada = 1;
     int ejecutar_opcion = 0;
 
     activar_modo_raw(); // Activar teclado no bloqueante
 
-    while (continuar_ejecucion_hilo) {
-        
+    while (continuar_ejecucion_hilo)
+    {
+
         dibujar_menu_interfaz(opcion_resaltada);
         ejecutar_opcion = 0;
 
         // Bucle de espera (lee Morse y Teclado a la vez)
-        while(ejecutar_opcion == 0 && continuar_ejecucion_hilo) {
-            
+        while (ejecutar_opcion == 0 && continuar_ejecucion_hilo)
+        {
+
             // --- 1. LEER TECLADO SSH ---
             char tecla = 0;
-            if (read(STDIN_FILENO, &tecla, 1) > 0) {
-                if (tecla == ' ' || tecla == 's' || tecla == 'S') { 
+            if (read(STDIN_FILENO, &tecla, 1) > 0)
+            {
+                if (tecla == ' ' || tecla == 's' || tecla == 'S')
+                {
                     // Espacio o 's' simula pulso corto (Bajar en el menú)
                     opcion_resaltada = (opcion_resaltada % 4) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
-                } 
-                else if (tecla == '\n' || tecla == '\r') { 
+                }
+                else if (tecla == '\n' || tecla == '\r')
+                {
                     // ENTER simula pulso largo (Aceptar)
                     ejecutar_opcion = opcion_resaltada;
-                } 
-                else if (tecla == 27) { 
+                }
+                else if (tecla == 27)
+                {
                     // Tecla ESC para salir directamente
-                    ejecutar_opcion = 4; 
+                    ejecutar_opcion = 4;
                 }
             }
 
             // --- 2. LEER MANIPULADOR MORSE ---
             char lectura = 0;
             pthread_mutex_lock(&mutex_morse);
-            if (simbolo_detectado != 0) {
+            if (simbolo_detectado != 0)
+            {
                 lectura = simbolo_detectado;
                 simbolo_detectado = 0;
             }
             pthread_mutex_unlock(&mutex_morse);
 
-            if (lectura != 0) {
-                if (lectura == SIMBOLO_PUNTO || lectura == SIMBOLO_RAYA) {
+            if (lectura != 0)
+            {
+                if (lectura == SIMBOLO_PUNTO || lectura == SIMBOLO_RAYA)
+                {
                     // Pulso corto: Avanzar a la siguiente opción cíclicamente
                     opcion_resaltada = (opcion_resaltada % 4) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
-                } 
-                else if (lectura == SIMBOLO_MANTENER_PULSADO) {
+                }
+                else if (lectura == SIMBOLO_MANTENER_PULSADO)
+                {
                     // Pulso largo: Seleccionar opción actual
                     ejecutar_opcion = opcion_resaltada;
                 }
@@ -551,29 +630,33 @@ int main(int argc, char **argv)
         }
 
         // --- 3. EJECUTAR LA OPCIÓN ---
-        if(ejecutar_opcion == 1){
+        if (ejecutar_opcion == 1)
+        {
             modo_letra_a_letra();
         }
-        else if(ejecutar_opcion == 2){
+        else if (ejecutar_opcion == 2)
+        {
             modo_libre();
         }
-        else if(ejecutar_opcion == 3){
+        else if (ejecutar_opcion == 3)
+        {
             modo_prueba_letras();
         }
-        else if(ejecutar_opcion == 4){
+        else if (ejecutar_opcion == 4)
+        {
             printf("\033[2J\033[H"); // Limpiar pantalla antes de salir
             printf("Saliendo de MorseBerry...\n");
-            continuar_ejecucion_hilo = 0; 
+            continuar_ejecucion_hilo = 0;
         }
     }
 
     restaurar_terminal();
-   
+
     /*
         LIMPIEZA
     */
     continuar_ejecucion_hilo = 0;
-    pthread_join(thread_id, NULL); //espera terminacion del hilo
+    pthread_join(thread_id, NULL); // espera terminacion del hilo
     gpiod_line_request_release(request);
     gpiod_chip_close(chip);
     oled_cerrar();
