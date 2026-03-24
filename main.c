@@ -536,7 +536,7 @@ int main(int argc, char **argv)
     // se especifica que queremos ambos flancos a detectar
     gpiod_line_settings_set_edge_detection(settings, GPIOD_LINE_EDGE_BOTH);
     gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_UP); // Resistencia intern
-    gpiod_line_settings_set_debounce_period_us(settings, 30000);
+    gpiod_line_settings_set_debounce_period_us(settings, 5000);
 
     struct gpiod_line_config *line_cfg = gpiod_line_config_new();
     unsigned int offset = (unsigned int)morse_gpio;
