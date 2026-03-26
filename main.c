@@ -15,7 +15,7 @@
 #define FREQ 100
 #define GPIO_PREDET 17
 
-// TIEMPOS POR DEFECTO
+// TIEMPOS POR DEFECTO -> 12ppm, palabras por minuto
 #define TIEMPO_PUNTO 100
 #define TIEMPO_RAYA 300
 #define TIEMPO_ESPACIO 700
@@ -29,6 +29,21 @@
 #define SIMBOLO_ESPACIO_LARGO 4 // fin palabra
 #define SIMBOLO_DESCONOCIDO 5
 #define SIMBOLO_MANTENER_PULSADO 6
+
+// VARIABLES DE TIEMPO
+long long tiempo_punto = TIEMPO_PUNTO;
+long long tiempo_raya = TIEMPO_RAYA;
+long long tiempo_espacio = TIEMPO_ESPACIO;
+long long desviacion = DESVIACION;
+long long tiempo_mantener = TIEMPO_MANTENER;
+/*
+    x = 1200/ppm
+    tiempo_punto = x
+    tiempo_raya = 3x
+    tiempo_espacio = 7x
+    desviacion = x/2
+    tiempo_mantener >= 14x
+*/
 
 int morse_frecuency = FREQ;
 int morse_gpio = GPIO_PREDET;
@@ -52,15 +67,23 @@ void dibujar_menu_interfaz(int opcion_resaltada)
     oled_posicionar_cursor(10, 0); // X=10, Y=0 (Página 0)
     oled_imprimir("--- MORSEBERRY ---");
 
+    long long ppm = 1200 / tiempo_punto;
+    printf(" Configurado a %lld ppm (duracion punto = %lld ms)\n", ppm, tiempo_punto);
+
+    
+    printf("\n Navegacion con pulsador -> (Pulso corto: Bajar | Mantener pulsado: OK)");
+    printf("\n Navegacion con teclado -> (Pulse numero de la opcion)\n\n");
+
     // 3. DIBUJAR OPCIONES CON RESALTE
     const char *opciones[] = {
         "1. Letra a letra",
         "2. Modo libre",
         "3. Prueba letras",
-        "4. Salir"};
+        "4. Configuracion",
+        "5. Salir"};
 
     char buffer[20];
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 5; i++)
     {
         oled_posicionar_cursor(0, 2 + i);
         if ((i + 1) == opcion_resaltada)
@@ -76,7 +99,6 @@ void dibujar_menu_interfaz(int opcion_resaltada)
         oled_imprimir(buffer);
     }
 
-    printf("\n(Pulso corto: Bajar | Mantener pulsado: OK)\n");
     fflush(stdout);
     // [I2C OLED]: oled_display_update(); // Enviar buffer a la pantalla
 }
@@ -144,13 +166,13 @@ void *funcion_hilo_gpio(void *arg)
                     {
                         pulsado = 0;
                         pthread_mutex_lock(&mutex_morse);
-                        if (TIEMPO_PUNTO - DESVIACION <= duracion_pulsacion &&
-                            duracion_pulsacion <= TIEMPO_PUNTO + DESVIACION)
+                        if (tiempo_punto - desviacion <= duracion_pulsacion &&
+                            duracion_pulsacion <= tiempo_punto + desviacion)
                         {
                             simbolo_detectado = SIMBOLO_PUNTO;
                         }
-                        else if (TIEMPO_RAYA - DESVIACION <= duracion_pulsacion &&
-                                 duracion_pulsacion <= TIEMPO_RAYA + DESVIACION)
+                        else if (tiempo_raya - desviacion <= duracion_pulsacion &&
+                                 duracion_pulsacion <= tiempo_raya + desviacion)
                         {
                             simbolo_detectado = SIMBOLO_RAYA;
                         }
@@ -170,7 +192,7 @@ void *funcion_hilo_gpio(void *arg)
             if (pulsado == 1)
             {
                 // NUEVO: Detectar si se está manteniendo pulsado más de 1.5s
-                if (tiempo_ahora - tiempo_pulsado >= TIEMPO_MANTENER)
+                if (tiempo_ahora - tiempo_pulsado >= tiempo_mantener)
                 {
                     pthread_mutex_lock(&mutex_morse);
                     simbolo_detectado = SIMBOLO_MANTENER_PULSADO;
@@ -186,7 +208,7 @@ void *funcion_hilo_gpio(void *arg)
                 long long tiempo_inactivo = tiempo_ahora - tiempo_sin_pulsar;
 
                 // Evaluamos el espacio largo primero (fin de palabra)
-                if (tiempo_inactivo > TIEMPO_ESPACIO && tiempo_sin_pulsar != 0)
+                if (tiempo_inactivo > tiempo_espacio && tiempo_sin_pulsar != 0)
                 {
                     pthread_mutex_lock(&mutex_morse);
                     simbolo_detectado = SIMBOLO_ESPACIO_LARGO;
@@ -194,7 +216,7 @@ void *funcion_hilo_gpio(void *arg)
                     pthread_mutex_unlock(&mutex_morse);
                 }
                 // Evaluamos el espacio corto (fin de letra) asegurándonos de emitirlo solo UNA vez
-                else if (tiempo_inactivo >= (TIEMPO_RAYA - DESVIACION) &&
+                else if (tiempo_inactivo >= (tiempo_raya - desviacion) &&
                          tiempo_sin_pulsar != 0 &&
                          espacio_corto_emitido == 0)
                 {
@@ -254,6 +276,7 @@ void modo_letra_a_letra()
         char tecla;
         if (read(STDIN_FILENO, &tecla, 1) > 0)
         {
+
             if (tecla == 27)
             { // ESC
                 break;
@@ -391,6 +414,139 @@ void modo_libre()
     restaurar_terminal();
 }
 
+void modo_configuracion()
+{
+    int continuar_bucle = 1;
+    int opcion_resaltada = 1;
+    int ejecutar_opcion = 0;
+
+    activar_modo_raw();
+
+    while (continuar_bucle)
+    {
+        printf("\033[2J\033[H");
+        printf("\n -- Configuracion del programa --\n");
+        printf("Para volver al menu pulse ESC o mantenga pulsado\n\n");
+
+        printf("%s 1. Establecer PPM\n", opcion_resaltada == 1 ? ">" : " ");
+        printf("%s 2. Establecer duracion punto (ms)\n", opcion_resaltada == 2 ? ">" : " ");
+        printf("%s 3. Volver\n", opcion_resaltada == 3 ? ">" : " ");
+
+        ejecutar_opcion = 0;
+
+        while (ejecutar_opcion == 0)
+        {
+            // --- TECLADO ---
+            char tecla = 0;
+            if (read(STDIN_FILENO, &tecla, 1) > 0)
+            {
+                if (tecla >= '1' && tecla <= '3')
+                {
+                    ejecutar_opcion = tecla - '0';
+                }
+                else if (tecla == ' ' || tecla == 's' || tecla == 'S')
+                {
+                    opcion_resaltada = (opcion_resaltada % 3) + 1;
+                }
+                else if (tecla == '\n')
+                {
+                    ejecutar_opcion = opcion_resaltada;
+                }
+                else if (tecla == 27)
+                {
+                    continuar_bucle=0;
+                    opcion_resaltada = 1;
+                }
+            }
+
+                        char lectura = 0;
+            pthread_mutex_lock(&mutex_morse);
+            if (simbolo_detectado != 0)
+            {
+                lectura = simbolo_detectado;
+                simbolo_detectado = 0;
+            }
+            pthread_mutex_unlock(&mutex_morse);
+
+            if (lectura != 0)
+            {
+                if (lectura == SIMBOLO_PUNTO || lectura == SIMBOLO_RAYA)
+                {
+                    opcion_resaltada = (opcion_resaltada % 3) + 1;
+                    break;
+                }
+                else if (lectura == SIMBOLO_MANTENER_PULSADO)
+                {
+                    ejecutar_opcion = opcion_resaltada;
+                }
+            }
+
+            
+            usleep(10000); 
+        }
+
+
+        //ejecutar opcion elegida
+        if(ejecutar_opcion == 1){ //ppm
+            restaurar_terminal();
+            int ppm_introducido=0;
+            printf("\n Introduce PPM: ");
+            fflush(stdout);
+            
+            if (scanf("%d", &ppm_introducido) != 1 || ppm_introducido <= 0) 
+            {
+                printf(" Valor invalido\n");
+                sleep(1);
+                activar_modo_raw();
+                continue;
+            }
+
+
+            long long x = 1200 / ppm_introducido;
+            tiempo_punto = x;
+            tiempo_raya = 3* x;
+            tiempo_espacio = 7 * x;
+            desviacion = x / 2;
+            tiempo_mantener = 14*x;
+
+            printf(" Establecido a %lld ppm", x);
+            sleep(1);
+            activar_modo_raw();
+        }
+        else if (ejecutar_opcion == 2){ //duracion punto
+            restaurar_terminal();
+            int punto=0;
+            printf("\n Introduce duracion punto (ms): ");
+            fflush(stdout);
+
+            
+            if (scanf("%d", &punto) != 1 || punto <= 0)
+            {
+                printf(" Valor invalido\n");
+                sleep(1);
+                activar_modo_raw();
+                continue;
+            }
+
+            long long x = punto;
+            tiempo_punto = x;
+            tiempo_raya = 3* x;
+            tiempo_espacio = 7 * x;
+            desviacion = x / 2;
+            tiempo_mantener = 14*x;
+
+            printf(" Establecido duracion de punto a %d ms", punto);
+            sleep(1);
+            activar_modo_raw();
+        }else if (ejecutar_opcion == 3) {//salir
+            
+            continuar_bucle=0;
+        }
+    }
+
+    restaurar_terminal();
+}
+
 /* Genera letra aleatorio A-Z*/
 char generar_char_random()
 {
@@ -496,7 +652,7 @@ int main(int argc, char **argv)
     /*
         PARSEO COMANDOS
         opciones:
-            frecuencia  : -f int
+            tiempo punto (tiempo punto) : -f int
             gpio        : -g int
     */
     int opt;
@@ -586,10 +742,17 @@ int main(int argc, char **argv)
             char tecla = 0;
             if (read(STDIN_FILENO, &tecla, 1) > 0)
             {
+                // navegacion con teclado
+                if (tecla >= '1' && tecla <= '4')
+                {
+                    ejecutar_opcion = tecla - '0';
+                }
+
+                // navegacion con pulsador
                 if (tecla == ' ' || tecla == 's' || tecla == 'S')
                 {
                     // Espacio o 's' simula pulso corto (Bajar en el menú)
-                    opcion_resaltada = (opcion_resaltada % 4) + 1;
+                    opcion_resaltada = (opcion_resaltada % 5) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
                 }
                 else if (tecla == '\n' || tecla == '\r')
@@ -618,8 +781,8 @@ int main(int argc, char **argv)
             {
                 if (lectura == SIMBOLO_PUNTO || lectura == SIMBOLO_RAYA)
                 {
-                    // Pulso corto: Avanzar a la siguiente opción cíclicamente
-                    opcion_resaltada = (opcion_resaltada % 4) + 1;
+                    // Pulso corto: Avanzar a la siguiente opción ciclicamente
+                    opcion_resaltada = (opcion_resaltada % 5) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
                 }
                 else if (lectura == SIMBOLO_MANTENER_PULSADO)
@@ -632,7 +795,7 @@ int main(int argc, char **argv)
             usleep(10000); // Pausa de 10ms para no saturar la CPU al 100%
         }
 
-        // --- 3. EJECUTAR LA OPCIÓN ---
+        // --- 3. EJECUTAR LA OPCION ---
         if (ejecutar_opcion == 1)
         {
             modo_letra_a_letra();
@@ -646,6 +809,10 @@ int main(int argc, char **argv)
             modo_prueba_letras();
         }
         else if (ejecutar_opcion == 4)
+        {
+            modo_configuracion();
+        }
+        else if (ejecutar_opcion == 5)
         {
             printf("\033[2J\033[H"); // Limpiar pantalla antes de salir
             printf("Saliendo de MorseBerry...\n");
