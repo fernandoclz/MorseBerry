@@ -11,7 +11,7 @@ CFLAGS = -Wall
 LIBS = -lgpiod -lpthread
 
 # Archivos fuente (¡AQUÍ AÑADIMOS EL NUEVO ARCHIVO!)
-SRC = main.c traductor_morse.c pantalla_oled.c
+SRC = main.c traductor_morse.c pantalla_oled.c palabras.c
 
 # Regla principal: lo que pasa cuando solo escribes "make"
 all: $(TARGET)
