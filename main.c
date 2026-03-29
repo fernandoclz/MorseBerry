@@ -8,12 +8,18 @@
 #include <pthread.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <string.h>
 
 #include "traductor_morse.h"
 #include "pantalla_oled.h"
+#include "palabras.h"
+
+#define MAX_PALABRA 50
 // CONFIGURACIONES POR DEFECTO
 #define FREQ 100
 #define GPIO_PREDET 17
+
+#define NUM_MODOS_MENU 7
 
 // TIEMPOS POR DEFECTO -> 12ppm, palabras por minuto
 #define TIEMPO_PUNTO 100
@@ -70,7 +76,6 @@ void dibujar_menu_interfaz(int opcion_resaltada)
     long long ppm = 1200 / tiempo_punto;
     printf(" Configurado a %lld ppm (duracion punto = %lld ms)\n", ppm, tiempo_punto);
 
-    
     printf("\n Navegacion con pulsador -> (Pulso corto: Bajar | Mantener pulsado: OK)");
     printf("\n Navegacion con teclado -> (Pulse numero de la opcion)\n\n");
 
@@ -79,11 +84,13 @@ void dibujar_menu_interfaz(int opcion_resaltada)
         "1. Letra a letra",
         "2. Modo libre",
         "3. Prueba letras",
-        "4. Configuracion",
-        "5. Salir"};
+        "4. Prueba conjunto de letras random",
+        "5. Prueba palabras",
+        "6. Configuracion",
+        "7. Salir"};
 
     char buffer[20];
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < NUM_MODOS_MENU; i++)
     {
         oled_posicionar_cursor(0, 2 + i);
         if ((i + 1) == opcion_resaltada)
@@ -454,12 +461,12 @@ void modo_configuracion()
                 }
                 else if (tecla == 27)
                 {
-                    continuar_bucle=0;
+                    continuar_bucle = 0;
                     opcion_resaltada = 1;
                 }
             }
 
-                        char lectura = 0;
+            char lectura = 0;
             pthread_mutex_lock(&mutex_morse);
             if (simbolo_detectado != 0)
             {
@@ -481,19 +488,18 @@ void modo_configuracion()
                 }
             }
 
-            
-            usleep(10000); 
+            usleep(10000);
         }
 
-
-        //ejecutar opcion elegida
-        if(ejecutar_opcion == 1){ //ppm
+        // ejecutar opcion elegida
+        if (ejecutar_opcion == 1)
+        { // ppm
             restaurar_terminal();
-            int ppm_introducido=0;
+            int ppm_introducido = 0;
             printf("\n Introduce PPM: ");
             fflush(stdout);
-            
-            if (scanf("%d", &ppm_introducido) != 1 || ppm_introducido <= 0) 
+
+            if (scanf("%d", &ppm_introducido) != 1 || ppm_introducido <= 0)
             {
                 printf(" Valor invalido\n");
                 sleep(1);
@@ -501,25 +507,24 @@ void modo_configuracion()
                 continue;
             }
 
-
             long long x = 1200 / ppm_introducido;
             tiempo_punto = x;
-            tiempo_raya = 3* x;
+            tiempo_raya = 3 * x;
             tiempo_espacio = 7 * x;
             desviacion = x / 2;
-            tiempo_mantener = 14*x;
+            tiempo_mantener = 14 * x;
 
             printf(" Establecido a %lld ppm", x);
             sleep(1);
             activar_modo_raw();
         }
-        else if (ejecutar_opcion == 2){ //duracion punto
+        else if (ejecutar_opcion == 2)
+        { // duracion punto
             restaurar_terminal();
-            int punto=0;
+            int punto = 0;
             printf("\n Introduce duracion punto (ms): ");
             fflush(stdout);
 
-            
             if (scanf("%d", &punto) != 1 || punto <= 0)
             {
                 printf(" Valor invalido\n");
@@ -530,17 +535,19 @@ void modo_configuracion()
 
             long long x = punto;
             tiempo_punto = x;
-            tiempo_raya = 3* x;
+            tiempo_raya = 3 * x;
             tiempo_espacio = 7 * x;
             desviacion = x / 2;
-            tiempo_mantener = 14*x;
+            tiempo_mantener = 14 * x;
 
             printf(" Establecido duracion de punto a %d ms", punto);
             sleep(1);
             activar_modo_raw();
-        }else if (ejecutar_opcion == 3) {//salir
-            
-            continuar_bucle=0;
+        }
+        else if (ejecutar_opcion == 3)
+        { // salir
+
+            continuar_bucle = 0;
         }
     }
 
@@ -553,6 +560,16 @@ char generar_char_random()
     return 'A' + rand() % 26;
 }
 
+void generar_palabra_random(int longitud, char *palabra)
+{
+
+    for (int i = 0; i < longitud; i++)
+    {
+        palabra[i] = generar_char_random();
+    }
+    palabra[longitud] = '\0';
+}
+
 void modo_prueba_letras()
 {
     printf("\nModo prueba de letra: escribe correctamente las letras propuestas\n");
@@ -563,6 +580,8 @@ void modo_prueba_letras()
     char caracter_aleatorio = generar_char_random();
     printf("Escribe %c : ", caracter_aleatorio);
     fflush(stdout);
+
+    int num_intentos_fallidos = 0;
 
     while (1)
     {
@@ -606,21 +625,48 @@ void modo_prueba_letras()
             {
                 // Obtenemos la letra final y el estado se reinicia solo
                 char letra_final = morse_obtener_resultado();
+                int fallado = 1;
                 if (letra_final != '?' && !simbolo_desc_encontrado && caracter_aleatorio == letra_final)
                 {
                     printf(" -> [ACIERTO] - %c\n", letra_final);
+                    fallado = 0;
                 }
                 else if (letra_final == '?' || simbolo_desc_encontrado)
                 {
                     printf(" -> [FALLO] - Caracter escrito %c\n", '?');
+                    num_intentos_fallidos++;
                 }
                 else
                 {
                     printf(" -> [FALLO] - Caracter escrito %c\n", letra_final);
+                    num_intentos_fallidos++;
                 }
                 simbolo_desc_encontrado = 0;
-                caracter_aleatorio = generar_char_random();
-                printf("Escribe %c : ", caracter_aleatorio);
+
+                if (num_intentos_fallidos <= 3 && fallado)
+                {
+                    printf("Intentalo de nuevo\n");
+                    printf("%d intentos restantes\n", 7 - num_intentos_fallidos);
+                }
+                else if (num_intentos_fallidos <= 6 && fallado)
+                {
+                    printf("Intentalo de nuevo\n");
+                    printf("%d intentos restantes\n", 7 - num_intentos_fallidos);
+                    printf("Ayuda de los simbolo -> ");
+                    imprime_letra_como_morse(caracter_aleatorio);
+                }
+                else if (fallado)
+                {
+                    num_intentos_fallidos = 0;
+                    printf("Fallo, cambio de letra\n");
+                    caracter_aleatorio = generar_char_random();
+                }
+                else
+                {
+                    num_intentos_fallidos = 0;
+                    caracter_aleatorio = generar_char_random();
+                }
+                printf("\nEscribe %c : ", caracter_aleatorio);
             }
             else if (lectura == SIMBOLO_DESCONOCIDO)
             {
@@ -635,6 +681,294 @@ void modo_prueba_letras()
 
     restaurar_terminal();
 }
+
+void modo_prueba_conjunto_letras(int num)
+{
+    printf("\nModo prueba de conjunto de letras: escribe correctamente lo propuesto\n");
+    printf("Para volver al menu pulse ESC o mantenga pulsado\n");
+
+    activar_modo_raw();
+    int simbolo_desc_encontrado = 0;
+    char palabra_random[num + 1];
+    char palabra_usuario[num + 1];
+    int indice = 0;
+    generar_palabra_random(num, palabra_random);
+    printf("Escribe %s : ", palabra_random);
+    fflush(stdout);
+
+    int num_intentos_fallidos = 0;
+
+    while (1)
+    {
+        // mirar si se ha pulsado ESC
+        char tecla;
+        if (read(STDIN_FILENO, &tecla, 1) > 0)
+        {
+            if (tecla == 27)
+            { // ESC
+                break;
+            }
+        }
+
+        char lectura = 0;
+        pthread_mutex_lock(&mutex_morse);
+        if (simbolo_detectado != 0)
+        {
+            lectura = simbolo_detectado;
+            simbolo_detectado = 0;
+        }
+        pthread_mutex_unlock(&mutex_morse);
+
+        if (lectura != 0)
+        {
+            if (lectura == SIMBOLO_MANTENER_PULSADO)
+            {
+                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
+                break; // Sale del bucle del modo y vuelve al while del main()
+            }
+            else if (lectura == SIMBOLO_PUNTO)
+            {
+                printf(".");
+                morse_avanzar('.');
+            }
+            else if (lectura == SIMBOLO_RAYA)
+            {
+                printf("-");
+                morse_avanzar('-');
+            }
+            else if (lectura == SIMBOLO_ESPACIO_CORTO)
+            {
+                char letra_final = morse_obtener_resultado();
+
+                if (letra_final != '?' && !simbolo_desc_encontrado)
+                {
+                    if (indice < num)
+                        palabra_usuario[indice] = letra_final;
+                    indice++;
+                    printf("  ->  %c\n", letra_final);
+                }
+                else
+                {
+                    if (indice < num)
+                        palabra_usuario[indice++] = '?';
+                    printf("?");
+                }
+            }
+            else if (lectura == SIMBOLO_ESPACIO_LARGO)
+            {
+                palabra_usuario[indice] = '\0';
+                printf("\n");
+                int fallado = 1;
+
+                if (strcmp(palabra_usuario, palabra_random) == 0)
+                {
+                    printf(" -> [ACIERTO] %s\n", palabra_usuario);
+                    fallado = 0;
+                    num_intentos_fallidos = 0;
+                }
+                else
+                {
+                    printf(" -> [FALLO]\n");
+                    printf("         Esperado: %s\n", palabra_random);
+                    printf("         Escrito : %s\n", palabra_usuario);
+                    num_intentos_fallidos++;
+                }
+
+                simbolo_desc_encontrado = 0;
+                indice = 0;
+                if (fallado)
+                {
+                    if (num_intentos_fallidos <= 3)
+                    {
+                        printf("Intentalo de nuevo\n");
+                        printf("%d intentos restantes\n", 7 - num_intentos_fallidos);
+                    }
+                    else if (num_intentos_fallidos <= 6)
+                    {
+                        printf("Intentalo de nuevo\n");
+                        printf("%d intentos restantes\n", 7 - num_intentos_fallidos);
+                        printf("Ayuda:\n");
+
+                        // ayuda visual para usuario, muestra patron de cada letra
+                        for (int i = 0; i < num; i++)
+                        {
+                            printf("%c -> ", palabra_random[i]);
+                            imprime_letra_como_morse(palabra_random[i]);
+                        }
+                    }
+                    else
+                    {
+                        printf("Demasiados fallos, nueva palabra\n");
+                        num_intentos_fallidos = 0;
+                        generar_palabra_random(num, palabra_random);
+                    }
+                }
+                else
+                {
+                    generar_palabra_random(num, palabra_random);
+                }
+
+                printf("\nEscribe %s : ", palabra_random);
+            }
+            else if (lectura == SIMBOLO_DESCONOCIDO)
+            {
+                printf("?");
+                simbolo_desc_encontrado = 1;
+            }
+            fflush(stdout);
+        }
+
+        usleep(10000);
+    }
+
+    restaurar_terminal();
+}
+
+void modo_prueba_palabras()
+{
+    printf("\nModo prueba de palabras reales: escribe correctamente lo propuesto\n");
+    printf("Para volver al menu pulse ESC o mantenga pulsado\n");
+
+    activar_modo_raw();
+    int simbolo_desc_encontrado = 0;
+    char palabra_random[MAX_PALABRA];
+    char palabra_usuario[MAX_PALABRA];
+    int indice = 0;
+
+    strcpy(palabra_random, obtener_palabra_aleatoria());
+    printf("Escribe %s : ", palabra_random);
+    fflush(stdout);
+
+    int num_intentos_fallidos = 0;
+
+    while (1)
+    {
+        // mirar si se ha pulsado ESC
+        char tecla;
+        if (read(STDIN_FILENO, &tecla, 1) > 0)
+        {
+            if (tecla == 27)
+            { // ESC
+                break;
+            }
+        }
+
+        char lectura = 0;
+        pthread_mutex_lock(&mutex_morse);
+        if (simbolo_detectado != 0)
+        {
+            lectura = simbolo_detectado;
+            simbolo_detectado = 0;
+        }
+        pthread_mutex_unlock(&mutex_morse);
+
+        if (lectura != 0)
+        {
+            if (lectura == SIMBOLO_MANTENER_PULSADO)
+            {
+                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
+                break; // Sale del bucle del modo y vuelve al while del main()
+            }
+            else if (lectura == SIMBOLO_PUNTO)
+            {
+                printf(".");
+                morse_avanzar('.');
+            }
+            else if (lectura == SIMBOLO_RAYA)
+            {
+                printf("-");
+                morse_avanzar('-');
+            }
+            else if (lectura == SIMBOLO_ESPACIO_CORTO)
+            {
+                char letra_final = morse_obtener_resultado();
+
+                if (letra_final != '?' && !simbolo_desc_encontrado)
+                {
+                    if (indice < MAX_PALABRA - 1)
+                        palabra_usuario[indice] = letra_final;
+                    indice++;
+                    printf("  ->  %c\n", letra_final);
+                }
+                else
+                {
+                    if (indice < MAX_PALABRA - 1)
+                        palabra_usuario[indice++] = '?';
+                    printf("?");
+                }
+            }
+            else if (lectura == SIMBOLO_ESPACIO_LARGO)
+            {
+                palabra_usuario[indice] = '\0';
+                printf("\n");
+
+                int fallado = 1;
+
+                if (strcmp(palabra_usuario, palabra_random) == 0)
+                {
+                    printf(" -> [ACIERTO] %s\n", palabra_usuario);
+                    fallado = 0;
+                    num_intentos_fallidos = 0;
+                }
+                else
+                {
+                    printf(" -> [FALLO]\n");
+                    printf("         Esperado: %s\n", palabra_random);
+                    printf("         Escrito : %s\n", palabra_usuario);
+                    num_intentos_fallidos++;
+                }
+
+                simbolo_desc_encontrado = 0;
+                indice = 0;
+
+                if (fallado)
+                {
+                    if (num_intentos_fallidos <= 3)
+                    {
+                        printf("Intentalo de nuevo\n");
+                        printf("%d intentos restantes\n", 7 - num_intentos_fallidos);
+                    }
+                    else if (num_intentos_fallidos <= 6)
+                    {
+                        printf("Intentalo de nuevo\n");
+                        printf("%d intentos restantes\n", 7 - num_intentos_fallidos);
+                        printf("Ayuda:\n");
+
+                        // ayuda usuario con patron morse
+                        for (int i = 0; palabra_random[i] != '\0'; i++)
+                        {
+                            printf("%c -> ", palabra_random[i]);
+                            imprime_letra_como_morse(palabra_random[i]);
+                        }
+                    }
+                    else
+                    {
+                        printf("Demasiados fallos, nueva palabra\n");
+                        num_intentos_fallidos = 0;
+                        strcpy(palabra_random, obtener_palabra_aleatoria());
+                    }
+                }
+                else
+                {
+                    strcpy(palabra_random, obtener_palabra_aleatoria());
+                }
+
+                printf("\nEscribe %s : ", palabra_random);
+            }
+            else if (lectura == SIMBOLO_DESCONOCIDO)
+            {
+                printf("?");
+                simbolo_desc_encontrado = 1;
+            }
+            fflush(stdout);
+        }
+
+        usleep(10000);
+    }
+
+    restaurar_terminal();
+}
+
 /*
     Compilacion:
         gcc main.c -o main -lgpiod -lpthread
@@ -675,6 +1009,8 @@ int main(int argc, char **argv)
             break;
         }
     }
+
+    srand(time(NULL));
 
     /*
         CONFIGURACION GPIO
@@ -743,7 +1079,7 @@ int main(int argc, char **argv)
             if (read(STDIN_FILENO, &tecla, 1) > 0)
             {
                 // navegacion con teclado
-                if (tecla >= '1' && tecla <= '4')
+                if (tecla >= '1' && tecla <= '7')
                 {
                     ejecutar_opcion = tecla - '0';
                 }
@@ -752,7 +1088,7 @@ int main(int argc, char **argv)
                 if (tecla == ' ' || tecla == 's' || tecla == 'S')
                 {
                     // Espacio o 's' simula pulso corto (Bajar en el menú)
-                    opcion_resaltada = (opcion_resaltada % 5) + 1;
+                    opcion_resaltada = (opcion_resaltada % 7) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
                 }
                 else if (tecla == '\n' || tecla == '\r')
@@ -782,7 +1118,7 @@ int main(int argc, char **argv)
                 if (lectura == SIMBOLO_PUNTO || lectura == SIMBOLO_RAYA)
                 {
                     // Pulso corto: Avanzar a la siguiente opción ciclicamente
-                    opcion_resaltada = (opcion_resaltada % 5) + 1;
+                    opcion_resaltada = (opcion_resaltada % 7) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
                 }
                 else if (lectura == SIMBOLO_MANTENER_PULSADO)
@@ -810,9 +1146,17 @@ int main(int argc, char **argv)
         }
         else if (ejecutar_opcion == 4)
         {
-            modo_configuracion();
+            modo_prueba_conjunto_letras(2);
         }
         else if (ejecutar_opcion == 5)
+        {
+            modo_prueba_palabras();
+        }
+        else if (ejecutar_opcion == 6)
+        {
+            modo_configuracion();
+        }
+        else if (ejecutar_opcion == 7)
         {
             printf("\033[2J\033[H"); // Limpiar pantalla antes de salir
             printf("Saliendo de MorseBerry...\n");
