@@ -9,62 +9,68 @@ void *hilo_audio_alsa(void *arg) {
     int err;
     snd_pcm_t *handle;
     snd_pcm_hw_params_t *params;
-    unsigned int rate = 44100; // Calidad CD
+    unsigned int rate = 44100;
     int dir = 0;
-    snd_pcm_uframes_t frames = 512; // Tamaño del bloque de audio
-    
-    // 1. Abrir dispositivo de sonido ALSA por defecto
+    snd_pcm_uframes_t frames = 512;
+
     if ((err = snd_pcm_open(&handle, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
         printf("ERROR Audio: No se pudo abrir ALSA: %s\n", snd_strerror(err));
         return NULL;
     }
-    
-    // 2. Configurar los parámetros de hardware
+
     snd_pcm_hw_params_alloca(&params);
     snd_pcm_hw_params_any(handle, params);
     snd_pcm_hw_params_set_access(handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-    snd_pcm_hw_params_set_format(handle, params, SND_PCM_FORMAT_S16_LE); // 16 bits
-    snd_pcm_hw_params_set_channels(handle, params, 2); // Estéreo (I2S suele requerirlo)
+    snd_pcm_hw_params_set_format(handle, params, SND_PCM_FORMAT_S16_LE);
+    snd_pcm_hw_params_set_channels(handle, params, 2);
     snd_pcm_hw_params_set_rate_near(handle, params, &rate, &dir);
     snd_pcm_hw_params_set_period_size_near(handle, params, &frames, &dir);
-    
+
     if ((err = snd_pcm_hw_params(handle, params)) < 0) {
         printf("ERROR Audio: Parámetros inválidos: %s\n", snd_strerror(err));
+        snd_pcm_close(handle);
         return NULL;
     }
-    
-    // 3. Generar las ondas digitales
-    int freq_tono = 700; // Frecuencia del pitido Morse (700Hz es el estándar clásico)
-    short *buffer_tono = malloc(frames * 2 * sizeof(short)); // *2 por ser estéreo
-    short *buffer_silencio = calloc(frames * 2, sizeof(short)); // Relleno de ceros
-    
-    for (int i = 0; i < frames; i++) {
-        // Amplitud de 16000 (suficiente volumen sin distorsionar)
-        short muestra = 16000 * sin(2 * M_PI * freq_tono * i / rate); 
-        buffer_tono[2*i] = muestra;     // Canal Izquierdo
-        buffer_tono[2*i + 1] = muestra; // Canal Derecho
+
+    int freq_tono = 700;
+    short *buffer = malloc(frames * 2 * sizeof(short));
+    if (!buffer) {
+        snd_pcm_close(handle);
+        return NULL;
     }
-    
-    // 4. Bucle principal de envío continuo a I2S
-    // asumo que 'continuar_ejecucion_hilo' es tu variable para apagar el programa
-    while (continuar_ejecucion_hilo) { 
-        // Si el botón está pulsado usamos la onda, si no, silencio puro
-        short *buffer_actual = emitir_tono ? buffer_tono : buffer_silencio;
-        
-        err = snd_pcm_writei(handle, buffer_actual, frames);
-        
+
+    // *** CLAVE: fase acumulada entre iteraciones del bucle ***
+    double fase = 0.0;
+    double incremento_fase = 2.0 * M_PI * freq_tono / rate;
+
+    while (continuar_ejecucion_hilo) {
+        if (emitir_tono) {
+            // Generamos el buffer continuando la fase donde la dejamos
+            for (int i = 0; i < (int)frames; i++) {
+                short muestra = (short)(16000 * sin(fase));
+                buffer[2*i]     = muestra;
+                buffer[2*i + 1] = muestra;
+                fase += incremento_fase;
+                // Normalizamos para evitar overflow de double a largo plazo
+                if (fase >= 2.0 * M_PI) fase -= 2.0 * M_PI;
+            }
+        } else {
+            // Silencio: también avanzamos la fase para que la entrada sea suave
+            fase += incremento_fase * frames;
+            if (fase >= 2.0 * M_PI) fase = fmod(fase, 2.0 * M_PI);
+            for (int i = 0; i < (int)frames * 2; i++) buffer[i] = 0;
+        }
+
+        err = snd_pcm_writei(handle, buffer, frames);
         if (err == -EPIPE) {
-            // "Underrun": el audio se ha quedado atascado, lo reiniciamos rápido
             snd_pcm_prepare(handle);
         } else if (err < 0) {
             printf("ERROR Audio: Falla de escritura ALSA: %s\n", snd_strerror(err));
         }
     }
-    
-    // 5. Limpieza al cerrar el programa
+
     snd_pcm_drain(handle);
     snd_pcm_close(handle);
-    free(buffer_tono);
-    free(buffer_silencio);
+    free(buffer);
     return NULL;
 }

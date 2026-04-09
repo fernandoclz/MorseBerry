@@ -36,6 +36,6 @@ extern int continuar_ejecucion_hilo;
 
 extern volatile char simbolo_detectado;
 extern pthread_mutex_t mutex_morse;
-extern volatile int emitir_tono;
+extern volatile __sig_atomic_t emitir_tono;
 
 #endif // CONFIG_H
