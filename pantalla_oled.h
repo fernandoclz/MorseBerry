@@ -3,20 +3,28 @@
 
 #include <stdint.h>
 
-// Inicializa el bus I2C y manda la secuencia de arranque al SSD1306
-int oled_iniciar(void);
+/**
+ * Inicializa el bus I2C en Linux y configura la pantalla OLED.
+ */
+void oled_inicializar(void);
 
-// Limpia la pantalla (la llena de ceros)
+/**
+ * Limpia la pantalla OLED dejándola en negro.
+ */
 void oled_limpiar(void);
 
-// Posiciona el cursor. 
-// X: de 0 a 127 (columnas). Y: de 0 a 7 (páginas/líneas de texto)
+/**
+ * Posiciona el cursor en la pantalla para empezar a escribir.
+ * @param x Coordenada X (horizontal, típicamente de 0 a 127)
+ * @param y Coordenada Y o Página (vertical)
+ */
 void oled_posicionar_cursor(uint8_t x, uint8_t y);
 
-// Imprime una cadena de texto en la posición actual
+/**
+ * Escribe un texto en la pantalla a partir de la posición actual del cursor
+ * y actualiza la pantalla para que los cambios sean visibles.
+ * @param texto Cadena de caracteres a imprimir
+ */
 void oled_imprimir(const char* texto);
 
-// Cierra la comunicación
-void oled_cerrar(void);
-
-#endif
+#endif // PANTALLA_OLED_H

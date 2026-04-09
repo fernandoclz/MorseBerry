@@ -107,7 +107,6 @@ void dibujar_menu_interfaz(int opcion_resaltada)
     }
 
     fflush(stdout);
-    // [I2C OLED]: oled_display_update(); // Enviar buffer a la pantalla
 }
 
 void mensaje_formato_args()
@@ -1042,7 +1041,7 @@ int main(int argc, char **argv)
     }
 
     printf("Iniciando mi driver OLED por hardware...\n");
-    oled_iniciar(); // <--- Aquí llamas a tu driver
+    oled_iniciar(); 
 
     // --- LANZAMIENTO DEL HILO DE INTERRUPCIONES ---
     pthread_t thread_id;
