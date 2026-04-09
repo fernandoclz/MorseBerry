@@ -57,7 +57,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
     }
 
     // 4. DIBUJAR OPCIONES EN OLED (scroll centrado en la opción resaltada)
-    int max_opciones_visibles_oled = 5;
+    int max_opciones_visibles_oled = 4;
 
     int indice_inicio_scroll = opcion_resaltada - 1 - (max_opciones_visibles_oled / 2);
     if (indice_inicio_scroll < 0)
