@@ -10,7 +10,7 @@ CFLAGS = -Wall
 # Librerías a enlazar (gpiod y pthread para los hilos)
 LIBS = -lgpiod -lpthread -lm -lasound
 
-SRC = main.c traductor_morse.c pantalla_oled.c palabras.c extern/ssd1306.c extern/ssd1306_fonts.c
+SRC = main.c traductor_morse.c pantalla_oled.c palabras.c extern/ssd1306.c extern/ssd1306_fonts.c globals.c utils.c audio.c gpio_input.c modos.c
 
 # Regla principal: lo que pasa cuando solo escribes "make"
 all: $(TARGET)
