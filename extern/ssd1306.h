@@ -1,6 +1,7 @@
 /**
  * This Library was originally written by Olivier Van den Eede (4ilo) in 2016.
  * Some refactoring was done and SPI support was added by Aleksander Alekseev (afiskon) in 2018.
+ * Commented a library by Fernando Liu(fernandochanglz) in 2026
  *
  * https://github.com/afiskon/stm32-ssd1306
  */
@@ -10,9 +11,9 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <_ansi.h>
+//#include <_ansi.h>
 
-_BEGIN_STD_C
+//_BEGIN_STD_C
 
 #include "ssd1306_conf.h"
 

@@ -27,4 +27,9 @@ void oled_posicionar_cursor(uint8_t x, uint8_t y);
  */
 void oled_imprimir(const char* texto);
 
+/**
+ * Apaga la pantalla y cierra la comunicación I2C.
+ */
+void oled_cerrar(void);
+
 #endif // PANTALLA_OLED_H

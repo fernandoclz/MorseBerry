@@ -1041,7 +1041,7 @@ int main(int argc, char **argv)
     }
 
     printf("Iniciando mi driver OLED por hardware...\n");
-    oled_iniciar(); 
+    oled_inicializar(); 
 
     // --- LANZAMIENTO DEL HILO DE INTERRUPCIONES ---
     pthread_t thread_id;
@@ -1056,7 +1056,6 @@ int main(int argc, char **argv)
     /*
            BUCLE PRINCIPAL INFINITO
        */
-    int opcion_menu = 0;
 
     // limpia el buffer
 

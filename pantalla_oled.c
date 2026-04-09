@@ -41,3 +41,11 @@ void oled_imprimir(const char* texto) {
     ssd1306_WriteString((char*)texto, Font_7x10, White);
     ssd1306_UpdateScreen();
 }
+
+void oled_cerrar() {
+    oled_limpiar(); // Dejamos la pantalla en negro
+    if (i2c_fd >= 0) {
+        close(i2c_fd); // Cerramos el bus I2C
+        i2c_fd = -1;
+    }
+}
