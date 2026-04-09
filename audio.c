@@ -35,7 +35,7 @@ void *hilo_audio_alsa(void *arg) {
         return NULL;
     }
 
-    int freq_tono = 700;
+    int freq_tono = (morse_frecuency > 0) ? morse_frecuency : 700;
     short *buffer = malloc(frames * 2 * sizeof(short));
     if (!buffer) {
         snd_pcm_close(handle);
