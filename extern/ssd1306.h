@@ -1,7 +1,7 @@
 /**
  * This Library was originally written by Olivier Van den Eede (4ilo) in 2016.
  * Some refactoring was done and SPI support was added by Aleksander Alekseev (afiskon) in 2018.
- * Commented a library by Fernando Liu(fernandochanglz) in 2026
+ * Commented a library and STM by Fernando Liu(fernandochanglz) in 2026
  *
  * https://github.com/afiskon/stm32-ssd1306
  */
@@ -17,7 +17,7 @@
 
 #include "ssd1306_conf.h"
 
-
+/*
 #if defined(STM32WB)
 #include "stm32wbxx_hal.h"
 #elif defined(STM32F0)
@@ -52,7 +52,7 @@
 #else
 #error "SSD1306 library was tested only on STM32F0, STM32F1, STM32F3, STM32F4, STM32F7, STM32L0, STM32L1, STM32L4, STM32H7, STM32G0, STM32G4, STM32WB, STM32C0, STM32U5 MCU families. Please modify ssd1306.h if you know what you are doing. Also please send a pull request if it turns out the library works on other MCU's as well!"
 #endif
-
+*/
 
 #ifdef SSD1306_X_OFFSET
 #define SSD1306_X_OFFSET_LOWER (SSD1306_X_OFFSET & 0x0F)
@@ -104,9 +104,7 @@
 /* ^^^ SPI config ^^^ */
 
 #if defined(SSD1306_USE_I2C)
-extern I2C_HandleTypeDef SSD1306_I2C_PORT;
 #elif defined(SSD1306_USE_SPI)
-extern SPI_HandleTypeDef SSD1306_SPI_PORT;
 #else
 #error "You should define SSD1306_USE_SPI or SSD1306_USE_I2C macro!"
 #endif
@@ -214,6 +212,6 @@ void ssd1306_WriteCommand(uint8_t byte);
 void ssd1306_WriteData(uint8_t* buffer, size_t buff_size);
 SSD1306_Error_t ssd1306_FillBuffer(uint8_t* buf, uint32_t len);
 
-_END_STD_C
+//_END_STD_C
 
 #endif // __SSD1306_H__

@@ -1056,7 +1056,7 @@ int main(int argc, char **argv)
     /*
            BUCLE PRINCIPAL INFINITO
        */
-
+    int opcion_menu = 0;
     // limpia el buffer
 
     int opcion_resaltada = 1;
