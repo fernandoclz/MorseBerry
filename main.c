@@ -9,6 +9,8 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <string.h>
+#include <math.h>
+#include <alsa/asoundlib.h>
 
 #include "traductor_morse.h"
 #include "pantalla_oled.h"
@@ -58,6 +60,8 @@ int continuar_ejecucion_hilo = 1; // para indicar al hilo cuando se cierra aplic
 // variables compartidas para hilo de GPIO
 volatile char simbolo_detectado = 0; // 0 = .   1 = -    2 = espacio
 pthread_mutex_t mutex_morse = PTHREAD_MUTEX_INITIALIZER;
+//variables compartidas para sonido
+volatile int emitir_tono = 0;
 
 // restaurar la terminal al salir
 struct termios oldt;
@@ -126,6 +130,71 @@ long long obtener_tiempo_actual()
 
     return res;
 }
+// ---- HILO DE SONIDO ----
+
+void *hilo_audio_alsa(void *arg) {
+    int err;
+    snd_pcm_t *handle;
+    snd_pcm_hw_params_t *params;
+    unsigned int rate = 44100; // Calidad CD
+    int dir = 0;
+    snd_pcm_uframes_t frames = 512; // Tamaño del bloque de audio
+    
+    // 1. Abrir dispositivo de sonido ALSA por defecto
+    if ((err = snd_pcm_open(&handle, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+        printf("ERROR Audio: No se pudo abrir ALSA: %s\n", snd_strerror(err));
+        return NULL;
+    }
+    
+    // 2. Configurar los parámetros de hardware
+    snd_pcm_hw_params_alloca(&params);
+    snd_pcm_hw_params_any(handle, params);
+    snd_pcm_hw_params_set_access(handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    snd_pcm_hw_params_set_format(handle, params, SND_PCM_FORMAT_S16_LE); // 16 bits
+    snd_pcm_hw_params_set_channels(handle, params, 2); // Estéreo (I2S suele requerirlo)
+    snd_pcm_hw_params_set_rate_near(handle, params, &rate, &dir);
+    snd_pcm_hw_params_set_period_size_near(handle, params, &frames, &dir);
+    
+    if ((err = snd_pcm_hw_params(handle, params)) < 0) {
+        printf("ERROR Audio: Parámetros inválidos: %s\n", snd_strerror(err));
+        return NULL;
+    }
+    
+    // 3. Generar las ondas digitales
+    int freq_tono = 700; // Frecuencia del pitido Morse (700Hz es el estándar clásico)
+    short *buffer_tono = malloc(frames * 2 * sizeof(short)); // *2 por ser estéreo
+    short *buffer_silencio = calloc(frames * 2, sizeof(short)); // Relleno de ceros
+    
+    for (int i = 0; i < frames; i++) {
+        // Amplitud de 16000 (suficiente volumen sin distorsionar)
+        short muestra = 16000 * sin(2 * M_PI * freq_tono * i / rate); 
+        buffer_tono[2*i] = muestra;     // Canal Izquierdo
+        buffer_tono[2*i + 1] = muestra; // Canal Derecho
+    }
+    
+    // 4. Bucle principal de envío continuo a I2S
+    // asumo que 'continuar_ejecucion_hilo' es tu variable para apagar el programa
+    while (continuar_ejecucion_hilo) { 
+        // Si el botón está pulsado usamos la onda, si no, silencio puro
+        short *buffer_actual = emitir_tono ? buffer_tono : buffer_silencio;
+        
+        err = snd_pcm_writei(handle, buffer_actual, frames);
+        
+        if (err == -EPIPE) {
+            // "Underrun": el audio se ha quedado atascado, lo reiniciamos rápido
+            snd_pcm_prepare(handle);
+        } else if (err < 0) {
+            printf("ERROR Audio: Falla de escritura ALSA: %s\n", snd_strerror(err));
+        }
+    }
+    
+    // 5. Limpieza al cerrar el programa
+    snd_pcm_drain(handle);
+    snd_pcm_close(handle);
+    free(buffer_tono);
+    free(buffer_silencio);
+    return NULL;
+}
 
 // ---- HILO DE GPIO ----
 void *funcion_hilo_gpio(void *arg)
@@ -158,6 +227,7 @@ void *funcion_hilo_gpio(void *arg)
                 { // detecta flanco de bajada -> cuando se pulsa
                     tiempo_pulsado = obtener_tiempo_actual();
                     pulsado = 1;
+                    emitir_tono = 1;
                     espacio_corto_emitido = 0;
                 }
                 else if (tipo == GPIOD_EDGE_EVENT_RISING_EDGE)
@@ -206,6 +276,7 @@ void *funcion_hilo_gpio(void *arg)
 
                     // "Engañamos" al estado para no emitir múltiples señales seguidas
                     pulsado = 0;
+                    emitir_tono = 0;
                     tiempo_sin_pulsar = tiempo_ahora;
                 }
             }
@@ -1044,10 +1115,16 @@ int main(int argc, char **argv)
     oled_inicializar(); 
 
     // --- LANZAMIENTO DEL HILO DE INTERRUPCIONES ---
-    pthread_t thread_id;
+    pthread_t thread_id, thread_audio_id;
     if (pthread_create(&thread_id, NULL, funcion_hilo_gpio, (void *)request) != 0)
     {
         perror("Error al crear hilo");
+        return 1;
+    }
+
+    if (pthread_create(&thread_audio_id, NULL, hilo_audio_alsa, NULL) != 0)
+    {
+        perror("Error al crear hilo de audio");
         return 1;
     }
 
@@ -1056,8 +1133,8 @@ int main(int argc, char **argv)
     /*
            BUCLE PRINCIPAL INFINITO
        */
-    int opcion_menu = 0;
-    // limpia el buffer
+
+       // limpia el buffer
 
     int opcion_resaltada = 1;
     int ejecutar_opcion = 0;

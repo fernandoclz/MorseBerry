@@ -8,7 +8,7 @@ CC = gcc
 CFLAGS = -Wall
 
 # Librerías a enlazar (gpiod y pthread para los hilos)
-LIBS = -lgpiod -lpthread -lm
+LIBS = -lgpiod -lpthread -lm -lasound
 
 SRC = main.c traductor_morse.c pantalla_oled.c palabras.c extern/ssd1306.c extern/ssd1306_fonts.c
 
