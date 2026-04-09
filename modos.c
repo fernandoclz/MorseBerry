@@ -16,45 +16,81 @@ void dibujar_menu_interfaz(int opcion_resaltada)
     printf("\033[2J\033[H");
     oled_limpiar();
 
-    // 2. DIBUJAR CABECERA
+    // 1. DIBUJAR CABECERA (Consola SSH)
     printf("--- MorseBerry ---\n\n");
-    oled_posicionar_cursor(10, 0); // X=10, Y=0 (Página 0)
-    oled_imprimir("--- MORSEBERRY ---");
-
     long long ppm = 1200 / tiempo_punto;
     printf(" Configurado a %lld ppm (duracion punto = %lld ms)\n", ppm, tiempo_punto);
-
     printf("\n Navegacion con pulsador -> (Pulso corto: Bajar | Mantener pulsado: OK)");
     printf("\n Navegacion con teclado -> (Pulse numero de la opcion)\n\n");
 
-    // 3. DIBUJAR OPCIONES CON RESALTE
-    const char *opciones[] = {
+    // 2. DIBUJAR CABECERA (OLED)
+    oled_posicionar_cursor(10, 0); // X=10, Y=0 (Fila 0)
+    oled_imprimir("--- MORSEBERRY ---");
+
+    // Textos largos para SSH (Sin límite de tamaño)
+    const char *opciones_ssh[] = {
         "1. Letra a letra",
         "2. Modo libre",
         "3. Prueba letras",
         "4. Prueba conjunto de letras random",
         "5. Prueba palabras",
         "6. Configuracion",
-        "7. Salir"};
+        "7. Salir"
+    };
 
-    char buffer[20];
+    // Textos cortos para OLED (Máx ~14 caracteres para dejar espacio al ">")
+    const char *opciones_oled[] = {
+        "Letra-Letra",
+        "Modo Libre",
+        "Pr. Letras",
+        "Pr. Conjunto",
+        "Pr. Palabras",
+        "Configurar",
+        "Salir"
+    };
+
+    // 3. DIBUJAR OPCIONES EN CONSOLA SSH (Se muestran todas)
     for (int i = 0; i < NUM_MODOS_MENU; i++)
     {
-        oled_posicionar_cursor(0, 2 + i);
         if ((i + 1) == opcion_resaltada)
         {
-            printf(" > %s < \n", opciones[i]); // Resaltado para SSH
-            sprintf(buffer, "> OPCION %d", i + 1);
+            printf(" > %s < \n", opciones_ssh[i]); // Resaltado
         }
         else
         {
-            printf("   %s   \n", opciones[i]);
-            sprintf(buffer, "  OPCION %d", i + 1);
+            printf("   %s   \n", opciones_ssh[i]);
         }
-        oled_imprimir(buffer);
     }
 
-    fflush(stdout);
+    // 4. DIBUJAR OPCIONES EN OLED (Con efecto "Scroll" y nombres cortos)
+    int max_opciones_visibles_oled = 5; 
+    int indice_inicio_scroll = 0;
+
+    if (opcion_resaltada > max_opciones_visibles_oled) {
+        indice_inicio_scroll = opcion_resaltada - max_opciones_visibles_oled;
+    }
+
+    char buffer[21]; // Buffer un poco más grande por seguridad (max caracteres típicos de OLED)
+    int fila_oled_actual = 2; // Empezamos a pintar desde la Y=2 
+
+    // Bucle para la porción visible de la pantalla OLED
+    for (int i = indice_inicio_scroll; i < (indice_inicio_scroll + max_opciones_visibles_oled) && i < NUM_MODOS_MENU; i++)
+    {
+        oled_posicionar_cursor(0, fila_oled_actual);
+        
+        if ((i + 1) == opcion_resaltada)
+        {
+            // snprintf asegura que no nos pasemos de 21 caracteres
+            snprintf(buffer, sizeof(buffer), "> %s", opciones_oled[i]);
+        }
+        else
+        {
+            snprintf(buffer, sizeof(buffer), "  %s", opciones_oled[i]);
+        }
+        
+        oled_imprimir(buffer);
+        fila_oled_actual++; 
+    }
 }
 
 void modo_letra_a_letra()
