@@ -12,6 +12,7 @@ void *funcion_hilo_gpio(void *arg)
     long long tiempo_pulsado = 0;
     long long tiempo_sin_pulsar = obtener_tiempo_actual();
     int pulsado = 0;
+    emitir_tono = 0;
     int espacio_corto_emitido = 0;
     int ret;
 
@@ -47,6 +48,8 @@ void *funcion_hilo_gpio(void *arg)
                     if (pulsado == 1)
                     {
                         pulsado = 0;
+                        emitir_tono = 0;
+
                         pthread_mutex_lock(&mutex_morse);
                         if (tiempo_punto - desviacion <= duracion_pulsacion &&
                             duracion_pulsacion <= tiempo_punto + desviacion)
