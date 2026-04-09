@@ -11,7 +11,7 @@ void *hilo_audio_alsa(void *arg) {
     snd_pcm_hw_params_t *params;
     unsigned int rate = 44100;
     int dir = 0;
-    snd_pcm_uframes_t frames = 512;
+    snd_pcm_uframes_t frames = 256;
 
     if ((err = snd_pcm_open(&handle, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
         printf("ERROR Audio: No se pudo abrir ALSA: %s\n", snd_strerror(err));
@@ -25,6 +25,9 @@ void *hilo_audio_alsa(void *arg) {
     snd_pcm_hw_params_set_channels(handle, params, 2);
     snd_pcm_hw_params_set_rate_near(handle, params, &rate, &dir);
     snd_pcm_hw_params_set_period_size_near(handle, params, &frames, &dir);
+
+    snd_pcm_uframes_t buffer_size = frames * 2;
+    snd_pcm_hw_params_set_buffer_size_near(handle, params, &buffer_size);
 
     if ((err = snd_pcm_hw_params(handle, params)) < 0) {
         printf("ERROR Audio: Parámetros inválidos: %s\n", snd_strerror(err));
@@ -44,30 +47,39 @@ void *hilo_audio_alsa(void *arg) {
     double incremento_fase = 2.0 * M_PI * freq_tono / rate;
 
     while (continuar_ejecucion_hilo) {
-        if (emitir_tono) {
-            // Generamos el buffer continuando la fase donde la dejamos
-            for (int i = 0; i < (int)frames; i++) {
-                short muestra = (short)(16000 * sin(fase));
-                buffer[2*i]     = muestra;
-                buffer[2*i + 1] = muestra;
-                fase += incremento_fase;
-                // Normalizamos para evitar overflow de double a largo plazo
-                if (fase >= 2.0 * M_PI) fase -= 2.0 * M_PI;
-            }
-        } else {
-            // Silencio: también avanzamos la fase para que la entrada sea suave
-            fase += incremento_fase * frames;
-            if (fase >= 2.0 * M_PI) fase = fmod(fase, 2.0 * M_PI);
-            for (int i = 0; i < (int)frames * 2; i++) buffer[i] = 0;
+    if (emitir_tono) {
+        // Si el stream estaba pausado, lo reanudamos
+        snd_pcm_state_t estado = snd_pcm_state(handle);
+        if (estado == SND_PCM_STATE_PAUSED) {
+            snd_pcm_pause(handle, 0); // 0 = reanudar
+        }
+
+        for (int i = 0; i < (int)frames; i++) {
+            short muestra = (short)(16000 * sin(fase));
+            buffer[2*i]     = muestra;
+            buffer[2*i + 1] = muestra;
+            fase += incremento_fase;
+            if (fase >= 2.0 * M_PI) fase -= 2.0 * M_PI;
         }
 
         err = snd_pcm_writei(handle, buffer, frames);
         if (err == -EPIPE) {
             snd_pcm_prepare(handle);
         } else if (err < 0) {
-            printf("ERROR Audio: Falla de escritura ALSA: %s\n", snd_strerror(err));
+            printf("ERROR Audio: Falla escritura: %s\n", snd_strerror(err));
         }
+
+    } else {
+        // Sin tono: pausamos el stream y vaciamos el buffer para latencia cero
+        snd_pcm_state_t estado = snd_pcm_state(handle);
+        if (estado == SND_PCM_STATE_RUNNING) {
+            snd_pcm_drop(handle);   // Descarta inmediatamente lo encolado
+            snd_pcm_prepare(handle); // Deja el stream listo para reanudar
+        }
+        // Esperamos activamente sin saturar la CPU
+        usleep(5000); // 5ms de polling cuando hay silencio
     }
+}
 
     snd_pcm_drain(handle);
     snd_pcm_close(handle);
