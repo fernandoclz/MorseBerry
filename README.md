@@ -19,6 +19,8 @@ El proyecto usa las siguientes librerías externas:
 
 ## Instalación de dependencias
 
+**IMPORTANTE**: Se deben activar los buses I2C desde raspi-config --> Interface Options; I2S desde el archivo /boot/firmware/config.txt descomentando dtparam=i2s=on
+
 ### Opción A — Script automático (recomendado)
 
 ```bash

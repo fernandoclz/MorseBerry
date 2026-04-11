@@ -47,7 +47,7 @@ void *hilo_audio_alsa(void *arg) {
     double incremento_fase = 2.0 * M_PI * freq_tono / rate;
 
     while (continuar_ejecucion_hilo) {
-    if (emitir_tono) {
+    if (emitir_tono && sonido_activado) {
         // Si el stream estaba pausado, lo reanudamos
         int freq_actual = (morse_frecuency > 0) ? morse_frecuency : 700;
         double incremento_fase = 2.0 * M_PI * freq_actual / rate;

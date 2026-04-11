@@ -6,7 +6,7 @@
 #define MAX_PALABRA 50
 #define FREQ 100
 #define GPIO_PREDET 17
-#define NUM_MODOS_MENU 7
+#define NUM_MODOS_MENU 8
 
 // TIEMPOS POR DEFECTO -> 12ppm, palabras por minuto
 #define TIEMPO_PUNTO 100
@@ -33,6 +33,7 @@ extern long long tiempo_mantener;
 extern int morse_frecuency;
 extern int morse_gpio;
 extern int continuar_ejecucion_hilo;
+extern int sonido_activado;
 
 extern volatile char simbolo_detectado;
 extern pthread_mutex_t mutex_morse;

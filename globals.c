@@ -13,3 +13,4 @@ int continuar_ejecucion_hilo = 1;
 volatile char simbolo_detectado = 0;
 pthread_mutex_t mutex_morse = PTHREAD_MUTEX_INITIALIZER;
 volatile int emitir_tono = 0;
+int sonido_activado = 1; 

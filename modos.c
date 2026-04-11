@@ -22,7 +22,11 @@ void dibujar_menu_interfaz(int opcion_resaltada)
     printf(" Configurado a %lld ppm (duracion punto = %lld ms)\n", ppm, tiempo_punto);
     printf("\n Navegacion con pulsador -> (Pulso corto: Bajar | Mantener pulsado: OK)");
     printf("\n Navegacion con teclado -> (Pulse numero de la opcion)\n\n");
+    char txt_sonido_ssh[50];
+    snprintf(txt_sonido_ssh, sizeof(txt_sonido_ssh), "7. Sonido [%s]", sonido_activado ? "ON" : "OFF");
 
+    char txt_sonido_oled[21];
+    snprintf(txt_sonido_oled, sizeof(txt_sonido_oled), "Sonido [%s]", sonido_activado ? "ON" : "OFF");
     // 2. DIBUJAR CABECERA (OLED)
     oled_posicionar_cursor(10, 0);
     oled_imprimir("--- MORSEBERRY ---");
@@ -34,7 +38,8 @@ void dibujar_menu_interfaz(int opcion_resaltada)
         "4. Prueba conjunto de letras random",
         "5. Prueba palabras",
         "6. Configuracion",
-        "7. Salir"
+        txt_sonido_ssh,
+        "8. Salir"
     };
 
     const char *opciones_oled[] = {
@@ -44,6 +49,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
         "Pr. Conjunto",
         "Pr. Palabras",
         "Configurar",
+        txt_sonido_oled,
         "Salir"
     };
 
