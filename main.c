@@ -26,6 +26,9 @@ int main(int argc, char **argv) {
 
     mensaje_formato_args();
 
+    morse_frecuency = 700;
+    morse_gpio = GPIO_PREDET;
+
     int opt;
     while ((opt = (getopt(argc, argv, "g:f:"))) != -1) {
         switch (opt) {

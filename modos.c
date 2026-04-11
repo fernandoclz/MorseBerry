@@ -89,18 +89,24 @@ void modo_letra_a_letra()
     printf("\nModo Letra a letra\n");
     printf("Para volver al menu pulse ESC o mantenga pulsado\n");
 
-    // OLED: cabecera del modo
+    // OLED:
+    // [0] --- MORSEBERRY ---
+    // [1]   Letra a letra
+    // [2] Morse: .-
+    // [3] -> [A]
     oled_limpiar();
     oled_posicionar_cursor(10, 0);
     oled_imprimir("--- MORSEBERRY ---");
-    oled_posicionar_cursor(0, 2);
+    oled_posicionar_cursor(0, 1);
     oled_imprimir("  Letra a letra");
-    oled_posicionar_cursor(0, 4);
+    oled_posicionar_cursor(0, 2);
     oled_imprimir("Morse:");
+    oled_posicionar_cursor(0, 3);
+    oled_imprimir("-> ");
 
     activar_modo_raw();
     int simbolo_desc_encontrado = 0;
-    char morse_actual[21] = "";  // secuencia morse acumulada visible en OLED
+    char morse_actual[21] = "";
 
     while (1)
     {
@@ -129,11 +135,9 @@ void modo_letra_a_letra()
             if (lectura == SIMBOLO_MANTENER_PULSADO)
             {
                 oled_limpiar();
-                oled_posicionar_cursor(10, 0);
-                oled_imprimir("--- MORSEBERRY ---");
-                oled_posicionar_cursor(0, 3);
+                oled_posicionar_cursor(0, 1);
                 oled_imprimir(" Volviendo al");
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir("    menu...");
                 break;
             }
@@ -142,44 +146,47 @@ void modo_letra_a_letra()
                 printf(".");
                 morse_avanzar('.');
                 strncat(morse_actual, ".", sizeof(morse_actual) - strlen(morse_actual) - 1);
-                oled_posicionar_cursor(0, 5);
-                oled_imprimir("                    "); // limpiar linea
-                oled_posicionar_cursor(0, 5);
-                oled_imprimir(morse_actual);
+                char buf[21];
+                snprintf(buf, sizeof(buf), "Morse: %s", morse_actual);
+                oled_posicionar_cursor(0, 2);
+                oled_imprimir("                    ");
+                oled_posicionar_cursor(0, 2);
+                oled_imprimir(buf);
             }
             else if (lectura == SIMBOLO_RAYA)
             {
                 printf("-");
                 morse_avanzar('-');
                 strncat(morse_actual, "-", sizeof(morse_actual) - strlen(morse_actual) - 1);
-                oled_posicionar_cursor(0, 5);
+                char buf[21];
+                snprintf(buf, sizeof(buf), "Morse: %s", morse_actual);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 5);
-                oled_imprimir(morse_actual);
+                oled_posicionar_cursor(0, 2);
+                oled_imprimir(buf);
             }
             else if (lectura == SIMBOLO_ESPACIO_LARGO)
             {
-                // Obtenemos la letra final y el estado se reinicia solo
                 char letra_final = morse_obtener_resultado();
-                char buf_oled[21];
+                char buf[21];
                 if (letra_final != '?' && !simbolo_desc_encontrado)
                 {
                     printf(" -> [%c]\n", letra_final);
-                    snprintf(buf_oled, sizeof(buf_oled), "-> Letra: [%c]", letra_final);
+                    snprintf(buf, sizeof(buf), "-> [%c]", letra_final);
                 }
                 else
                 {
                     printf(" -> [Símbolo no reconocido]\n");
-                    snprintf(buf_oled, sizeof(buf_oled), "-> [?? desconocido]");
+                    snprintf(buf, sizeof(buf), "-> [?]");
                 }
-                oled_posicionar_cursor(0, 6);
+                oled_posicionar_cursor(0, 3);
                 oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 6);
-                oled_imprimir(buf_oled);
-                // Limpiar secuencia morse acumulada
+                oled_posicionar_cursor(0, 3);
+                oled_imprimir(buf);
+                // Limpiar morse y preparar siguiente
                 morse_actual[0] = '\0';
-                oled_posicionar_cursor(0, 5);
-                oled_imprimir("                    ");
+                oled_posicionar_cursor(0, 2);
+                oled_imprimir("Morse:");
                 simbolo_desc_encontrado = 0;
             }
             else if (lectura == SIMBOLO_DESCONOCIDO)
@@ -187,10 +194,12 @@ void modo_letra_a_letra()
                 printf("?");
                 simbolo_desc_encontrado = 1;
                 strncat(morse_actual, "?", sizeof(morse_actual) - strlen(morse_actual) - 1);
-                oled_posicionar_cursor(0, 5);
+                char buf[21];
+                snprintf(buf, sizeof(buf), "Morse: %s", morse_actual);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 5);
-                oled_imprimir(morse_actual);
+                oled_posicionar_cursor(0, 2);
+                oled_imprimir(buf);
             }
             fflush(stdout);
         }
@@ -206,19 +215,21 @@ void modo_libre()
     printf("\nModo Libre\n");
     printf("Para volver al menu pulse ESC o mantenga pulsado\n");
 
-    // OLED: cabecera del modo
+    // OLED:
+    // [0] --- MORSEBERRY ---
+    // [1]   Modo Libre
+    // [2] hola mundo...
+    // [3] Morse: ..
     oled_limpiar();
     oled_posicionar_cursor(10, 0);
     oled_imprimir("--- MORSEBERRY ---");
-    oled_posicionar_cursor(0, 2);
+    oled_posicionar_cursor(0, 1);
     oled_imprimir("   Modo Libre");
-    oled_posicionar_cursor(0, 4);
-    oled_imprimir("Texto:");
 
     activar_modo_raw();
     int simbolo_desc_encontrado = 0;
-    char texto_oled[21] = "";   // texto descifrado que se muestra en la OLED
-    char morse_actual[21] = ""; // secuencia morse en curso
+    char texto_oled[21] = "";
+    char morse_actual[21] = "";
 
     while (1)
     {
@@ -246,11 +257,9 @@ void modo_libre()
             if (lectura == SIMBOLO_MANTENER_PULSADO)
             {
                 oled_limpiar();
-                oled_posicionar_cursor(10, 0);
-                oled_imprimir("--- MORSEBERRY ---");
-                oled_posicionar_cursor(0, 3);
+                oled_posicionar_cursor(0, 1);
                 oled_imprimir(" Volviendo al");
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir("    menu...");
                 break;
             }
@@ -258,32 +267,34 @@ void modo_libre()
             {
                 morse_avanzar('.');
                 strncat(morse_actual, ".", sizeof(morse_actual) - strlen(morse_actual) - 1);
-                oled_posicionar_cursor(0, 5);
+                char buf[21];
+                snprintf(buf, sizeof(buf), "Morse: %.13s", morse_actual);
+                oled_posicionar_cursor(0, 3);
                 oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 5);
-                oled_imprimir(morse_actual);
+                oled_posicionar_cursor(0, 3);
+                oled_imprimir(buf);
             }
             else if (lectura == SIMBOLO_RAYA)
             {
                 morse_avanzar('-');
                 strncat(morse_actual, "-", sizeof(morse_actual) - strlen(morse_actual) - 1);
-                oled_posicionar_cursor(0, 5);
+                char buf[21];
+                snprintf(buf, sizeof(buf), "Morse: %.13s", morse_actual);
+                oled_posicionar_cursor(0, 3);
                 oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 5);
-                oled_imprimir(morse_actual);
+                oled_posicionar_cursor(0, 3);
+                oled_imprimir(buf);
             }
             else if (lectura == SIMBOLO_ESPACIO_CORTO)
             {
-                // Obtenemos la letra final y el estado se reinicia solo
                 char letra_final = morse_obtener_resultado();
                 morse_actual[0] = '\0';
-                oled_posicionar_cursor(0, 5);
+                oled_posicionar_cursor(0, 3);
                 oled_imprimir("                    ");
 
                 if (letra_final != '?' && !simbolo_desc_encontrado)
                 {
                     printf("%c", tolower(letra_final));
-                    // Añadir letra al texto OLED (scroll si llena)
                     int len = strlen(texto_oled);
                     if (len >= 19)
                     {
@@ -305,16 +316,15 @@ void modo_libre()
                     texto_oled[len >= 19 ? len - 1 : len] = '?';
                     texto_oled[len >= 19 ? len : len + 1] = '\0';
                 }
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir(texto_oled);
                 simbolo_desc_encontrado = 0;
             }
             else if (lectura == SIMBOLO_ESPACIO_LARGO)
             {
                 printf(" ");
-                // Añadir espacio al texto OLED
                 int len = strlen(texto_oled);
                 if (len > 0 && texto_oled[len - 1] != ' ')
                 {
@@ -322,11 +332,14 @@ void modo_libre()
                         memmove(texto_oled, texto_oled + 1, len);
                     texto_oled[len >= 19 ? len - 1 : len] = ' ';
                     texto_oled[len >= 19 ? len : len + 1] = '\0';
-                    oled_posicionar_cursor(0, 4);
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 4);
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir(texto_oled);
                 }
+                morse_actual[0] = '\0';
+                oled_posicionar_cursor(0, 3);
+                oled_imprimir("                    ");
                 simbolo_desc_encontrado = 0;
             }
             else if (lectura == SIMBOLO_DESCONOCIDO)
@@ -334,10 +347,12 @@ void modo_libre()
                 printf("?");
                 simbolo_desc_encontrado = 1;
                 strncat(morse_actual, "?", sizeof(morse_actual) - strlen(morse_actual) - 1);
-                oled_posicionar_cursor(0, 5);
+                char buf[21];
+                snprintf(buf, sizeof(buf), "Morse: %.13s", morse_actual);
+                oled_posicionar_cursor(0, 3);
                 oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 5);
-                oled_imprimir(morse_actual);
+                oled_posicionar_cursor(0, 3);
+                oled_imprimir(buf);
             }
             fflush(stdout);
         }
@@ -366,18 +381,20 @@ void modo_configuracion()
         printf("%s 2. Establecer duracion punto (ms)\n", opcion_resaltada == 2 ? ">" : " ");
         printf("%s 3. Volver\n", opcion_resaltada == 3 ? ">" : " ");
 
-        // OLED: dibujar menu de configuracion
+        // OLED:
+        // [0] -- Configuracion --
+        // [1] > Est. PPM
+        // [2]   Est. Punto(ms)
+        // [3]   Volver
         oled_limpiar();
-        oled_posicionar_cursor(10, 0);
-        oled_imprimir("--- MORSEBERRY ---");
-        oled_posicionar_cursor(0, 2);
-        oled_imprimir(" Configuracion");
+        oled_posicionar_cursor(0, 0);
+        oled_imprimir("- Configuracion -");
         {
             const char *cfg_oled[] = {"Est. PPM", "Est. Punto(ms)", "Volver"};
             for (int i = 0; i < 3; i++)
             {
                 char buf[21];
-                oled_posicionar_cursor(0, 4 + i);
+                oled_posicionar_cursor(0, 1 + i);
                 if ((i + 1) == opcion_resaltada)
                     snprintf(buf, sizeof(buf), "> %s", cfg_oled[i]);
                 else
@@ -435,11 +452,9 @@ void modo_configuracion()
                     if (ejecutar_opcion == 3)
                     {
                         oled_limpiar();
-                        oled_posicionar_cursor(10, 0);
-                        oled_imprimir("--- MORSEBERRY ---");
-                        oled_posicionar_cursor(0, 3);
+                        oled_posicionar_cursor(0, 1);
                         oled_imprimir(" Volviendo al");
-                        oled_posicionar_cursor(0, 4);
+                        oled_posicionar_cursor(0, 2);
                         oled_imprimir("    menu...");
                     }
                 }
@@ -456,12 +471,10 @@ void modo_configuracion()
             printf("\n Introduce PPM: ");
             // OLED: indicar entrada de dato
             oled_limpiar();
-            oled_posicionar_cursor(10, 0);
-            oled_imprimir("--- MORSEBERRY ---");
-            oled_posicionar_cursor(0, 3);
-            oled_imprimir(" Introduce PPM");
-            oled_posicionar_cursor(0, 4);
-            oled_imprimir("    en SSH:");
+            oled_posicionar_cursor(0, 1);
+            oled_imprimir("Introduce PPM");
+            oled_posicionar_cursor(0, 2);
+            oled_imprimir("en SSH:");
             fflush(stdout);
 
             if (scanf("%d", &ppm_introducido) != 1 || ppm_introducido <= 0)
@@ -484,12 +497,10 @@ void modo_configuracion()
             {
                 char buf[21];
                 oled_limpiar();
-                oled_posicionar_cursor(10, 0);
-                oled_imprimir("--- MORSEBERRY ---");
-                oled_posicionar_cursor(0, 3);
+                oled_posicionar_cursor(0, 1);
                 oled_imprimir("PPM establecido:");
                 snprintf(buf, sizeof(buf), "  %lld ppm", x);
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir(buf);
             }
             sleep(1);
@@ -504,12 +515,10 @@ void modo_configuracion()
             printf("\n Introduce duracion punto (ms): ");
             // OLED: indicar entrada de dato
             oled_limpiar();
-            oled_posicionar_cursor(10, 0);
-            oled_imprimir("--- MORSEBERRY ---");
-            oled_posicionar_cursor(0, 3);
-            oled_imprimir(" Introduce punto");
-            oled_posicionar_cursor(0, 4);
-            oled_imprimir("  (ms) en SSH:");
+            oled_posicionar_cursor(0, 1);
+            oled_imprimir("Introduce punto");
+            oled_posicionar_cursor(0, 2);
+            oled_imprimir("(ms) en SSH:");
             fflush(stdout);
 
             if (scanf("%d", &punto) != 1 || punto <= 0)
@@ -532,12 +541,10 @@ void modo_configuracion()
             {
                 char buf[21];
                 oled_limpiar();
-                oled_posicionar_cursor(10, 0);
-                oled_imprimir("--- MORSEBERRY ---");
-                oled_posicionar_cursor(0, 3);
+                oled_posicionar_cursor(0, 1);
                 oled_imprimir("Punto establecido:");
                 snprintf(buf, sizeof(buf), "  %d ms", punto);
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir(buf);
             }
             sleep(1);
@@ -566,16 +573,20 @@ void modo_prueba_letras()
 
     int num_intentos_fallidos = 0;
 
-    // OLED: cabecera y primer reto
+    // OLED:
+    // [0] --- MORSEBERRY ---
+    // [1]  Prueba letras
+    // [2] Escribe: [A]
+    // [3] .-  [ACIERTO]
     oled_limpiar();
     oled_posicionar_cursor(10, 0);
     oled_imprimir("--- MORSEBERRY ---");
-    oled_posicionar_cursor(0, 2);
-    oled_imprimir("  Prueba letras");
+    oled_posicionar_cursor(0, 1);
+    oled_imprimir(" Prueba letras");
     {
         char buf[21];
-        oled_posicionar_cursor(0, 4);
         snprintf(buf, sizeof(buf), "Escribe: [%c]", caracter_aleatorio);
+        oled_posicionar_cursor(0, 2);
         oled_imprimir(buf);
     }
 
@@ -606,11 +617,9 @@ void modo_prueba_letras()
             {
                 // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
                 oled_limpiar();
-                oled_posicionar_cursor(10, 0);
-                oled_imprimir("--- MORSEBERRY ---");
-                oled_posicionar_cursor(0, 3);
+                oled_posicionar_cursor(0, 1);
                 oled_imprimir(" Volviendo al");
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir("    menu...");
                 break; // Sale del bucle del modo y vuelve al while del main()
             }
@@ -629,36 +638,36 @@ void modo_prueba_letras()
                 // Obtenemos la letra final y el estado se reinicia solo
                 char letra_final = morse_obtener_resultado();
                 int fallado = 1;
+                char buf_oled[21];
                 if (letra_final != '?' && !simbolo_desc_encontrado && caracter_aleatorio == letra_final)
                 {
                     printf(" -> [ACIERTO] - %c\n", letra_final);
                     fallado = 0;
+                    snprintf(buf_oled, sizeof(buf_oled), "[ACIERTO]");
                     // OLED: acierto
-                    oled_posicionar_cursor(0, 5);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 5);
-                    oled_imprimir("[ACIERTO]");
+                    oled_posicionar_cursor(0, 3);
+                    oled_imprimir(buf_oled);
                 }
                 else if (letra_final == '?' || simbolo_desc_encontrado)
                 {
                     printf(" -> [FALLO] - Caracter escrito %c\n", '?');
                     num_intentos_fallidos++;
-                    // OLED: fallo
-                    oled_posicionar_cursor(0, 5);
+                    snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", 7 - num_intentos_fallidos);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 5);
-                    oled_imprimir("[FALLO] -> ?");
+                    oled_posicionar_cursor(0, 3);
+                    oled_imprimir(buf_oled);
                 }
                 else
                 {
                     printf(" -> [FALLO] - Caracter escrito %c\n", letra_final);
                     num_intentos_fallidos++;
-                    // OLED: fallo con letra escrita
-                    char buf_oled[21];
-                    snprintf(buf_oled, sizeof(buf_oled), "[FALLO] -> %c", letra_final);
-                    oled_posicionar_cursor(0, 5);
+                    snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", 7 - num_intentos_fallidos);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 5);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir(buf_oled);
                 }
                 simbolo_desc_encontrado = 0;
@@ -687,13 +696,13 @@ void modo_prueba_letras()
                     caracter_aleatorio = generar_char_random();
                 }
                 printf("\nEscribe %c : ", caracter_aleatorio);
-                // OLED: mostrar nueva letra a escribir
+                // OLED: nueva letra
                 {
                     char buf[21];
-                    oled_posicionar_cursor(0, 4);
-                    oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 4);
                     snprintf(buf, sizeof(buf), "Escribe: [%c]", caracter_aleatorio);
+                    oled_posicionar_cursor(0, 2);
+                    oled_imprimir("                    ");
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir(buf);
                 }
             }
@@ -727,18 +736,20 @@ void modo_prueba_conjunto_letras(int num)
 
     int num_intentos_fallidos = 0;
 
-    // OLED: cabecera y primer reto
+    // OLED:
+    // [0] --- MORSEBERRY ---
+    // [1] Escribe: abc
+    // [2] Escrito: ab
+    // [3] [FALLO] 5 rest.
     oled_limpiar();
     oled_posicionar_cursor(10, 0);
     oled_imprimir("--- MORSEBERRY ---");
-    oled_posicionar_cursor(0, 2);
-    oled_imprimir(" Prueba conjunto");
     {
         char buf[21];
-        oled_posicionar_cursor(0, 4);
-        snprintf(buf, sizeof(buf), "Escribe: %s", palabra_random);
+        snprintf(buf, sizeof(buf), "Escribe: %.11s", palabra_random);
+        oled_posicionar_cursor(0, 1);
         oled_imprimir(buf);
-        oled_posicionar_cursor(0, 5);
+        oled_posicionar_cursor(0, 2);
         oled_imprimir("Escrito: ");
     }
 
@@ -768,11 +779,9 @@ void modo_prueba_conjunto_letras(int num)
             if (lectura == SIMBOLO_MANTENER_PULSADO)
             {
                 oled_limpiar();
-                oled_posicionar_cursor(10, 0);
-                oled_imprimir("--- MORSEBERRY ---");
-                oled_posicionar_cursor(0, 3);
+                oled_posicionar_cursor(0, 1);
                 oled_imprimir(" Volviendo al");
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir("    menu...");
                 break; // Sale del bucle del modo y vuelve al while del main()
             }
@@ -803,16 +812,16 @@ void modo_prueba_conjunto_letras(int num)
                         palabra_usuario[indice++] = '?';
                     printf("?");
                 }
-                // OLED: mostrar progreso de lo escrito
+                // OLED: progreso escrito en fila 2
                 {
                     char buf_escrito[num + 2];
                     strncpy(buf_escrito, palabra_usuario, indice);
                     buf_escrito[indice] = '\0';
                     char buf_oled[21];
-                    snprintf(buf_oled, sizeof(buf_oled), "Escrito: %s", buf_escrito);
-                    oled_posicionar_cursor(0, 5);
+                    snprintf(buf_oled, sizeof(buf_oled), "Escrito: %.11s", buf_escrito);
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 5);
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir(buf_oled);
                 }
             }
@@ -827,9 +836,9 @@ void modo_prueba_conjunto_letras(int num)
                     printf(" -> [ACIERTO] %s\n", palabra_usuario);
                     fallado = 0;
                     num_intentos_fallidos = 0;
-                    oled_posicionar_cursor(0, 6);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 6);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("[ACIERTO]");
                 }
                 else
@@ -838,10 +847,12 @@ void modo_prueba_conjunto_letras(int num)
                     printf("         Esperado: %s\n", palabra_random);
                     printf("         Escrito : %s\n", palabra_usuario);
                     num_intentos_fallidos++;
-                    oled_posicionar_cursor(0, 6);
+                    char buf_oled[21];
+                    snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", 7 - num_intentos_fallidos);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 6);
-                    oled_imprimir("[FALLO]");
+                    oled_posicionar_cursor(0, 3);
+                    oled_imprimir(buf_oled);
                 }
 
                 simbolo_desc_encontrado = 0;
@@ -879,18 +890,16 @@ void modo_prueba_conjunto_letras(int num)
                 }
 
                 printf("\nEscribe %s : ", palabra_random);
-                // OLED: nueva palabra
+                // OLED: nueva palabra en fila 1, limpiar progreso
                 {
                     char buf[21];
-                    oled_posicionar_cursor(0, 4);
+                    snprintf(buf, sizeof(buf), "Escribe: %.11s", palabra_random);
+                    oled_posicionar_cursor(0, 1);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 4);
-                    snprintf(buf, sizeof(buf), "Escribe: %s", palabra_random);
+                    oled_posicionar_cursor(0, 1);
                     oled_imprimir(buf);
-                    oled_posicionar_cursor(0, 5);
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir("Escrito: ");
-                    oled_posicionar_cursor(0, 6);
-                    oled_imprimir("                    ");
                 }
             }
             else if (lectura == SIMBOLO_DESCONOCIDO)
@@ -924,21 +933,20 @@ void modo_prueba_palabras()
 
     int num_intentos_fallidos = 0;
 
-    // OLED: cabecera y primera palabra
+    // OLED:
+    // [0] --- MORSEBERRY ---
+    // [1] Escribe: palabra
+    // [2] Escrito: pal
+    // [3] [FALLO] 5 rest.
     oled_limpiar();
     oled_posicionar_cursor(10, 0);
     oled_imprimir("--- MORSEBERRY ---");
-    oled_posicionar_cursor(0, 2);
-    oled_imprimir(" Prueba palabras");
     {
         char buf[21];
-        oled_posicionar_cursor(0, 4);
-        snprintf(buf, sizeof(buf), "Escribe:");
+        snprintf(buf, sizeof(buf), "Escribe:%.12s", palabra_random);
+        oled_posicionar_cursor(0, 1);
         oled_imprimir(buf);
-        oled_posicionar_cursor(0, 5);
-        snprintf(buf, sizeof(buf), " %s", palabra_random);
-        oled_imprimir(buf);
-        oled_posicionar_cursor(0, 6);
+        oled_posicionar_cursor(0, 2);
         oled_imprimir("Escrito: ");
     }
 
@@ -968,11 +976,9 @@ void modo_prueba_palabras()
             if (lectura == SIMBOLO_MANTENER_PULSADO)
             {
                 oled_limpiar();
-                oled_posicionar_cursor(10, 0);
-                oled_imprimir("--- MORSEBERRY ---");
-                oled_posicionar_cursor(0, 3);
+                oled_posicionar_cursor(0, 1);
                 oled_imprimir(" Volviendo al");
-                oled_posicionar_cursor(0, 4);
+                oled_posicionar_cursor(0, 2);
                 oled_imprimir("    menu...");
                 break; // Sale del bucle del modo y vuelve al while del main()
             }
@@ -1003,16 +1009,16 @@ void modo_prueba_palabras()
                         palabra_usuario[indice++] = '?';
                     printf("?");
                 }
-                // OLED: progreso de lo escrito
+                // OLED: progreso escrito en fila 2
                 {
                     char buf_escrito[MAX_PALABRA];
                     strncpy(buf_escrito, palabra_usuario, indice);
                     buf_escrito[indice] = '\0';
                     char buf_oled[21];
-                    snprintf(buf_oled, sizeof(buf_oled), "Escrito: %s", buf_escrito);
-                    oled_posicionar_cursor(0, 6);
+                    snprintf(buf_oled, sizeof(buf_oled), "Escrito: %.11s", buf_escrito);
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 6);
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir(buf_oled);
                 }
             }
@@ -1028,9 +1034,9 @@ void modo_prueba_palabras()
                     printf(" -> [ACIERTO] %s\n", palabra_usuario);
                     fallado = 0;
                     num_intentos_fallidos = 0;
-                    oled_posicionar_cursor(0, 7);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 7);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("[ACIERTO]");
                 }
                 else
@@ -1039,10 +1045,12 @@ void modo_prueba_palabras()
                     printf("         Esperado: %s\n", palabra_random);
                     printf("         Escrito : %s\n", palabra_usuario);
                     num_intentos_fallidos++;
-                    oled_posicionar_cursor(0, 7);
+                    char buf_oled[21];
+                    snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", 7 - num_intentos_fallidos);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 7);
-                    oled_imprimir("[FALLO]");
+                    oled_posicionar_cursor(0, 3);
+                    oled_imprimir(buf_oled);
                 }
 
                 simbolo_desc_encontrado = 0;
@@ -1081,17 +1089,17 @@ void modo_prueba_palabras()
                 }
 
                 printf("\nEscribe %s : ", palabra_random);
-                // OLED: nueva palabra
+                // OLED: nueva palabra en fila 1, limpiar progreso y resultado
                 {
                     char buf[21];
-                    oled_posicionar_cursor(0, 5);
+                    snprintf(buf, sizeof(buf), "Escribe:%.12s", palabra_random);
+                    oled_posicionar_cursor(0, 1);
                     oled_imprimir("                    ");
-                    oled_posicionar_cursor(0, 5);
-                    snprintf(buf, sizeof(buf), " %s", palabra_random);
+                    oled_posicionar_cursor(0, 1);
                     oled_imprimir(buf);
-                    oled_posicionar_cursor(0, 6);
+                    oled_posicionar_cursor(0, 2);
                     oled_imprimir("Escrito: ");
-                    oled_posicionar_cursor(0, 7);
+                    oled_posicionar_cursor(0, 3);
                     oled_imprimir("                    ");
                 }
             }

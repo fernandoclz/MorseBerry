@@ -49,6 +49,8 @@ void *hilo_audio_alsa(void *arg) {
     while (continuar_ejecucion_hilo) {
     if (emitir_tono) {
         // Si el stream estaba pausado, lo reanudamos
+        int freq_actual = (morse_frecuency > 0) ? morse_frecuency : 700;
+        double incremento_fase = 2.0 * M_PI * freq_actual / rate;
         snd_pcm_state_t estado = snd_pcm_state(handle);
         if (estado == SND_PCM_STATE_PAUSED) {
             snd_pcm_pause(handle, 0); // 0 = reanudar
