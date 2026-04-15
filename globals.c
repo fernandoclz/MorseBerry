@@ -8,6 +8,8 @@ long long tiempo_mantener = TIEMPO_MANTENER;
 
 int morse_frecuency = FREQ;
 int morse_gpio = GPIO_PREDET;
+int manip_izq_gpio = GPIO_MANIP_IZQ;
+int manip_der_gpio = GPIO_MANIP_DER;
 int continuar_ejecucion_hilo = 1;
 
 volatile char simbolo_detectado = 0;

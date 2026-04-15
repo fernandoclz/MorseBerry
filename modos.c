@@ -383,8 +383,11 @@ void modo_configuracion()
         printf("\n -- Configuracion del programa --\n");
         printf("Para volver al menu pulse ESC o mantenga pulsado\n\n");
 
-        printf("%s 1. Establecer PPM\n", opcion_resaltada == 1 ? ">" : " ");
-        printf("%s 2. Establecer duracion punto (ms)\n", opcion_resaltada == 2 ? ">" : " ");
+        
+        long long ppm = 1200 / tiempo_punto;
+        printf("PPM actual : %lld\n", ppm);
+        printf("%s 1. Aumentar ppm\n", opcion_resaltada == 1 ? ">" : " ");
+        printf("%s 2. Reducir ppm\n", opcion_resaltada == 2 ? ">" : " ");
         printf("%s 3. Volver\n", opcion_resaltada == 3 ? ">" : " ");
 
         // OLED:
@@ -471,90 +474,40 @@ void modo_configuracion()
 
         // ejecutar opcion elegida
         if (ejecutar_opcion == 1)
-        { // ppm
-            restaurar_terminal();
-            int ppm_introducido = 0;
-            printf("\n Introduce PPM: ");
-            // OLED: indicar entrada de dato
-            oled_limpiar();
-            oled_posicionar_cursor(0, 2);
-            oled_imprimir("Introduce PPM");
-            oled_posicionar_cursor(0, 3);
-            oled_imprimir("en SSH:");
-            fflush(stdout);
+        { // aumentar ppm
 
-            if (scanf("%d", &ppm_introducido) != 1 || ppm_introducido <= 0)
-            {
-                printf(" Valor invalido\n");
-                sleep(1);
-                activar_modo_raw();
-                continue;
-            }
+            
+            long long ppm = 1200 / tiempo_punto;
+            ppm++;
 
-            long long x = 1200 / ppm_introducido;
+            long long x = 1200 / ppm; 
             tiempo_punto = x;
             tiempo_raya = 3 * x;
             tiempo_espacio = 7 * x;
             desviacion = x / 2;
             tiempo_mantener = 14 * x;
 
-            printf(" Establecido a %lld ppm", x);
-            // OLED: confirmar nuevo valor
-            {
-                char buf[21];
-                oled_limpiar();
-                oled_posicionar_cursor(0, 2);
-                oled_imprimir("PPM establecido:");
-                snprintf(buf, sizeof(buf), "  %lld ppm", x);
-                oled_posicionar_cursor(0, 3);
-                oled_imprimir(buf);
-            }
             sleep(1);
-            activar_modo_raw();
-            sleep(1);
-            activar_modo_raw();
+
         }
         else if (ejecutar_opcion == 2)
-        { // duracion punto
-            restaurar_terminal();
-            int punto = 0;
-            printf("\n Introduce duracion punto (ms): ");
-            // OLED: indicar entrada de dato
-            oled_limpiar();
-            oled_posicionar_cursor(0, 2);
-            oled_imprimir("Introduce punto");
-            oled_posicionar_cursor(0, 3);
-            oled_imprimir("(ms) en SSH:");
-            fflush(stdout);
+        {// disminuir ppm
 
-            if (scanf("%d", &punto) != 1 || punto <= 0)
-            {
-                printf(" Valor invalido\n");
-                sleep(1);
-                activar_modo_raw();
-                continue;
-            }
+            
+            long long ppm = 1200 / tiempo_punto;
+            ppm--;
+            if(ppm < 1)
+                ppm = 1;
 
-            long long x = punto;
+            long long x = 1200 / ppm; 
             tiempo_punto = x;
             tiempo_raya = 3 * x;
             tiempo_espacio = 7 * x;
             desviacion = x / 2;
             tiempo_mantener = 14 * x;
 
-            printf(" Establecido duracion de punto a %d ms", punto);
-            // OLED: confirmar nuevo valor
-            {
-                char buf[21];
-                oled_limpiar();
-                oled_posicionar_cursor(0, 2);
-                oled_imprimir("Punto establecido:");
-                snprintf(buf, sizeof(buf), "  %d ms", punto);
-                oled_posicionar_cursor(0, 3);
-                oled_imprimir(buf);
-            }
             sleep(1);
-            activar_modo_raw();
+
         }
         else if (ejecutar_opcion == 3)
         { // salir
@@ -896,6 +849,7 @@ void modo_prueba_conjunto_letras(int num)
                 }
 
                 printf("\nEscribe %s : ", palabra_random);
+                usleep(700000);
                 // OLED: nueva palabra en fila 1, limpiar progreso
                 {
                     char buf[21];
@@ -1095,6 +1049,7 @@ void modo_prueba_palabras()
                 }
 
                 printf("\nEscribe %s : ", palabra_random);
+                usleep(700000);
                 // OLED: nueva palabra en fila 1, limpiar progreso y resultado
                 {
                     char buf[21];

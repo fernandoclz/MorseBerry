@@ -28,6 +28,9 @@ int main(int argc, char **argv) {
 
     morse_frecuency = 700;
     morse_gpio = GPIO_PREDET;
+    manip_izq_gpio = GPIO_MANIP_IZQ;
+    manip_der_gpio = GPIO_MANIP_DER;
+    
 
     int opt;
     while ((opt = (getopt(argc, argv, "g:f:"))) != -1) {
@@ -57,8 +60,12 @@ int main(int argc, char **argv) {
     gpiod_line_settings_set_debounce_period_us(settings, 5000);
 
     struct gpiod_line_config *line_cfg = gpiod_line_config_new();
-    unsigned int offset = (unsigned int)morse_gpio;
-    gpiod_line_config_add_line_settings(line_cfg, &offset, 1, settings);
+        unsigned int offsets[] = {
+        (unsigned int)morse_gpio,
+        (unsigned int)manip_izq_gpio,
+        (unsigned int)manip_der_gpio
+    };
+    gpiod_line_config_add_line_settings(line_cfg, offsets, 3, settings);
 
     struct gpiod_line_request *request = gpiod_chip_request_lines(chip, NULL, line_cfg);
     if (!request) {
