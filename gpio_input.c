@@ -28,10 +28,31 @@ void *funcion_hilo_gpio(void *arg)
                 // sacamos el tipo del evento
                 event = gpiod_edge_event_buffer_get_event(buffer, 0);
                 int tipo = gpiod_edge_event_get_event_type(event);
+                unsigned int linea = gpiod_edge_event_get_line_offset(event);
+
 
                 // se actua segun el evento sea de bajada o subida
                 if (tipo == GPIOD_EDGE_EVENT_FALLING_EDGE)
                 { // detecta flanco de bajada -> cuando se pulsa
+                    if (linea == 24 || linea == 23) //manipulador
+                    {
+                        pthread_mutex_lock(&mutex_morse);
+
+                        if (linea == 24)
+                            simbolo_detectado = SIMBOLO_PUNTO;
+                        else if (linea == 23)
+                            simbolo_detectado = SIMBOLO_RAYA;
+
+                        pthread_mutex_unlock(&mutex_morse);
+
+                        tiempo_sin_pulsar = obtener_tiempo_actual();
+                        espacio_corto_emitido = 0;
+                        pulsado = 0;
+                        emitir_tono = 0;
+
+                        continue; //salta 1 iteracion del bucle
+                    }
+
                     tiempo_pulsado = obtener_tiempo_actual();
                     pulsado = 1;
                     emitir_tono = 1;
