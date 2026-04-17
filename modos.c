@@ -1151,7 +1151,7 @@ void modo_escucha_morse()
             }
             else
             {
-                printf(" -> [FALLO] Escribiste %c, era %c\n", escrita, objetivo);
+                printf(" -> [FALLO] Escribiste %c\n", escrita);
                 num_intentos_fallidos++;
 
                 char buf_oled[21];
@@ -1161,14 +1161,10 @@ void modo_escucha_morse()
                 oled_posicionar_cursor(0, 4);
                 oled_imprimir(buf_oled);
 
-                if (num_intentos_fallidos <= 3) {
+                if (num_intentos_fallidos <= 6) {
                     printf("Intentalo de nuevo (%d intentos restantes)\n", 7 - num_intentos_fallidos);
-                } else if (num_intentos_fallidos <= 6) {
-                    printf("Intentalo de nuevo (%d intentos restantes)\n", 7 - num_intentos_fallidos);
-                    printf("Ayuda -> ");
-                    imprime_letra_como_morse(caracter_aleatorio);
                 } else {
-                    printf("Demasiados fallos, cambiando letra\n");
+                    printf("Demasiados fallos, la letra era %c, cambiando letra\n", objetivo);
                     num_intentos_fallidos = 0;
                     caracter_aleatorio = generar_char_random();
                 }
