@@ -1077,3 +1077,134 @@ void modo_prueba_palabras()
 
     restaurar_terminal();
 }
+
+static void reproducir_morse_caracter(char caracter_aleatorio, long long tiempo_punto, long long tiempo_raya)
+{
+    char patron[16];
+    int longitud = 0;
+    morse_obtener_patron(caracter_aleatorio, patron, &longitud);
+
+    for (int i = 0; i < longitud; i++) {
+        emitir_tono = 1;
+        usleep(patron[i] == '.' ? tiempo_punto * 1000 : tiempo_raya * 1000);
+        emitir_tono = 0;
+        usleep(tiempo_punto * 1000); // silencio entre simbolos
+    }
+}
+
+void modo_escucha_morse()
+{
+    printf("\nModo escucha morse: escucha el audio y escribe la letra con el teclado\n");
+    printf("Para volver al menu pulse ESC o mantenga pulsado\n");
+
+    oled_limpiar();
+    oled_posicionar_cursor(10, 0);
+    oled_imprimir("--- MORSEBERRY ---");
+    oled_posicionar_cursor(0, 2);
+    oled_imprimir(" Escucha Morse");
+    oled_posicionar_cursor(0, 3);
+    oled_imprimir("Escucha y escribe");
+
+    activar_modo_raw();
+
+    int num_intentos_fallidos = 0;
+    char caracter_aleatorio = generar_char_random();
+
+    printf("Escucha y escribe la letra (R para repetir): ");
+    fflush(stdout);
+    reproducir_morse_caracter(caracter_aleatorio, tiempo_punto, tiempo_raya);
+
+    while (1)
+    {
+        char tecla;
+        if (read(STDIN_FILENO, &tecla, 1) > 0)
+        {
+            if (tecla == 27) // ESC
+                break;
+
+            if (tecla == 'r' || tecla == 'R') {
+                printf("\n[Repitiendo...]\n");
+                reproducir_morse_caracter(caracter_aleatorio, tiempo_punto, tiempo_raya);
+                printf("Escucha y escribe la letra: ");
+                fflush(stdout);
+                continue;
+            }
+
+            if (!isalpha(tecla))
+                continue;
+
+            char escrita = toupper(tecla);
+            char objetivo = toupper(caracter_aleatorio);
+
+            if (escrita == objetivo)
+            {
+                printf(" -> [ACIERTO] %c\n", escrita);
+                num_intentos_fallidos = 0;
+                oled_posicionar_cursor(0, 4);
+                oled_imprimir("                    ");
+                oled_posicionar_cursor(0, 4);
+                oled_imprimir("[ACIERTO]");
+                usleep(700000);
+                caracter_aleatorio = generar_char_random();
+            }
+            else
+            {
+                printf(" -> [FALLO] Escribiste %c, era %c\n", escrita, objetivo);
+                num_intentos_fallidos++;
+
+                char buf_oled[21];
+                snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", 7 - num_intentos_fallidos);
+                oled_posicionar_cursor(0, 4);
+                oled_imprimir("                    ");
+                oled_posicionar_cursor(0, 4);
+                oled_imprimir(buf_oled);
+
+                if (num_intentos_fallidos <= 3) {
+                    printf("Intentalo de nuevo (%d intentos restantes)\n", 7 - num_intentos_fallidos);
+                } else if (num_intentos_fallidos <= 6) {
+                    printf("Intentalo de nuevo (%d intentos restantes)\n", 7 - num_intentos_fallidos);
+                    printf("Ayuda -> ");
+                    imprime_letra_como_morse(caracter_aleatorio);
+                } else {
+                    printf("Demasiados fallos, cambiando letra\n");
+                    num_intentos_fallidos = 0;
+                    caracter_aleatorio = generar_char_random();
+                }
+            }
+
+            printf("Escucha y escribe la letra: ");
+            fflush(stdout);
+            reproducir_morse_caracter(caracter_aleatorio, tiempo_punto, tiempo_raya);
+
+            oled_posicionar_cursor(0, 3);
+            oled_imprimir("                    ");
+            oled_posicionar_cursor(0, 3);
+            oled_imprimir("Escucha y escribe");
+            oled_posicionar_cursor(0, 4);
+            oled_imprimir("                    ");
+        }
+
+        // Pulsador fisico para volver
+        char lectura = 0;
+        pthread_mutex_lock(&mutex_morse);
+        if (simbolo_detectado != 0) {
+            lectura = simbolo_detectado;
+            simbolo_detectado = 0;
+        }
+        pthread_mutex_unlock(&mutex_morse);
+
+        if (lectura == SIMBOLO_MANTENER_PULSADO) {
+            oled_limpiar();
+            oled_posicionar_cursor(0, 2);
+            oled_imprimir(" Volviendo al");
+            oled_posicionar_cursor(0, 3);
+            oled_imprimir("    menu...");
+            break;
+        }
+
+        usleep(10000);
+    }
+
+    emitir_tono = 0;
+    restaurar_terminal();
+}

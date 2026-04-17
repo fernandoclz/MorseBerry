@@ -8,5 +8,6 @@ void modo_configuracion();
 void modo_prueba_letras();
 void modo_prueba_conjunto_letras(int num);
 void modo_prueba_palabras();
+void modo_escucha_morse();
 
 #endif // MODOS_H

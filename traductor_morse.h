@@ -10,4 +10,7 @@ char morse_obtener_resultado();
 
 void imprime_letra_como_morse(char letra);
 
+void morse_obtener_patron(char letra, char *buffer_out, int *longitud_out);
+
+
 #endif

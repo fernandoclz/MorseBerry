@@ -88,3 +88,29 @@ void imprime_letra_como_morse(char letra){
     }
     printf("\n");
 }
+
+// traductor_morse.c
+void morse_obtener_patron(char letra, char *buffer_out, int *longitud_out)
+{
+    if (letra >= 'a' && letra <= 'z')
+        letra = letra - 'a' + 'A';
+
+    int tam = sizeof(arbol_morse) - 1;
+    int index = -1;
+    for (int i = 0; i < tam; i++) {
+        if (arbol_morse[i] == letra) { index = i; break; }
+    }
+
+    *longitud_out = 0;
+    if (index < 0) return;
+
+    char tmp[16];
+    int pos = 0;
+    while (index > 0) {
+        int parent = (index - 1) / 2;
+        tmp[pos++] = (index == 2 * parent + 1) ? '.' : '-';
+        index = parent;
+    }
+    for (int i = pos - 1; i >= 0; i--)
+        buffer_out[(*longitud_out)++] = tmp[i];
+}
