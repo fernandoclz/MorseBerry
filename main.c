@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
 
             if (lectura != 0) {
                 if (lectura == SIMBOLO_PUNTO || lectura == SIMBOLO_RAYA) {
-                    opcion_resaltada = (opcion_resaltada % 8) + 1;
+                    opcion_resaltada = (opcion_resaltada % 9) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
                 } else if (lectura == SIMBOLO_MANTENER_PULSADO) {
                     ejecutar_opcion = opcion_resaltada;

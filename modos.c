@@ -23,7 +23,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
     printf("\n Navegacion con pulsador -> (Pulso corto: Bajar | Mantener pulsado: OK)");
     printf("\n Navegacion con teclado -> (Pulse numero de la opcion)\n\n");
     char txt_sonido_ssh[50];
-    snprintf(txt_sonido_ssh, sizeof(txt_sonido_ssh), "7. Sonido [%s]", sonido_activado ? "ON" : "OFF");
+    snprintf(txt_sonido_ssh, sizeof(txt_sonido_ssh), "8. Sonido [%s]", sonido_activado ? "ON" : "OFF");
 
     char txt_sonido_oled[21];
     snprintf(txt_sonido_oled, sizeof(txt_sonido_oled), "Sonido [%s]", sonido_activado ? "ON" : "OFF");
