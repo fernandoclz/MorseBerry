@@ -8,7 +8,7 @@
 #define GPIO_PREDET 17
 #define GPIO_MANIP_IZQ 24
 #define GPIO_MANIP_DER 23
-#define NUM_MODOS_MENU 8
+#define NUM_MODOS_MENU 9
 
 // TIEMPOS POR DEFECTO -> 12ppm, palabras por minuto
 #define TIEMPO_PUNTO 100

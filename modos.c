@@ -37,9 +37,10 @@ void dibujar_menu_interfaz(int opcion_resaltada)
         "3. Prueba letras",
         "4. Prueba conjunto de letras random",
         "5. Prueba palabras",
-        "6. Configuracion",
+        "6. Escucha Morse",      
+        "7. Configuracion",
         txt_sonido_ssh,
-        "8. Salir"
+        "9. Salir"
     };
 
     const char *opciones_oled[] = {
@@ -48,6 +49,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
         "Pr. Letras",
         "Pr. Conjunto",
         "Pr. Palabras",
+        "Escucha",      
         "Configurar",
         txt_sonido_oled,
         "Salir"

@@ -103,14 +103,14 @@ int main(int argc, char **argv) {
             // LECTURA DE TECLADO
             char tecla = 0;
             if (read(STDIN_FILENO, &tecla, 1) > 0) {
-                if (tecla >= '1' && tecla <= '8') ejecutar_opcion = tecla - '0';
+                if (tecla >= '1' && tecla <= '9') ejecutar_opcion = tecla - '0';
                 if (tecla == ' ' || tecla == 's' || tecla == 'S') {
-                    opcion_resaltada = (opcion_resaltada % 8) + 1;
+                    opcion_resaltada = (opcion_resaltada % 9) + 1;
                     dibujar_menu_interfaz(opcion_resaltada);
                 } else if (tecla == '\n' || tecla == '\r') {
                     ejecutar_opcion = opcion_resaltada;
                 } else if (tecla == 27) {
-                    ejecutar_opcion = 8;
+                    ejecutar_opcion = 9;
                 }
             }
 
@@ -141,12 +141,13 @@ int main(int argc, char **argv) {
             case 3: modo_prueba_letras(); break;
             case 4: modo_prueba_conjunto_letras(2); break;
             case 5: modo_prueba_palabras(); break;
-            case 6: modo_configuracion(); break;
-            case 7: 
+            case 6: modo_escucha_morse(); break;
+            case 7: modo_configuracion(); break;
+            case 8: 
                 // Invertimos el estado del sonido
                 sonido_activado = !sonido_activado; 
                 break;
-            case 8:
+            case 9:
                 printf("\033[2J\033[HSaliendo de MorseBerry...\n");
                 continuar_ejecucion_hilo = 0;
                 break;
