@@ -34,13 +34,13 @@ void *funcion_hilo_gpio(void *arg)
                 // se actua segun el evento sea de bajada o subida
                 if (tipo == GPIOD_EDGE_EVENT_FALLING_EDGE)
                 { // detecta flanco de bajada -> cuando se pulsa
-                    if (linea == 24 || linea == 23) //manipulador
+                    if (linea == manip_der_gpio || linea == manip_izq_gpio) //manipulador
                     {
                         pthread_mutex_lock(&mutex_morse);
 
-                        if (linea == 24)
+                        if (linea == manip_izq_gpio)
                             simbolo_detectado = SIMBOLO_PUNTO;
-                        else if (linea == 23)
+                        else if (linea == manip_der_gpio)
                             simbolo_detectado = SIMBOLO_RAYA;
 
                         pthread_mutex_unlock(&mutex_morse);

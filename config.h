@@ -4,7 +4,7 @@
 #include <pthread.h>
 
 #define MAX_PALABRA 50
-#define FREQ 100
+#define FREQ 12
 #define GPIO_PREDET 17
 #define GPIO_MANIP_IZQ 24
 #define GPIO_MANIP_DER 23
