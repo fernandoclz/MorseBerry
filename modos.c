@@ -18,6 +18,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
 
     // 1. DIBUJAR CABECERA (Consola SSH)
     printf("--- MorseBerry ---\n\n");
+    printf(" Consola: ./main -g [GPIO_PULSADOR] -p [GPIO_MANIP_PUNTO] -r [GPIO_MANIP_RAYA] -f [FREQf (PPM)]\n");
     long long ppm = 1200 / tiempo_punto;
     printf(" Configurado a %lld ppm (duracion punto = %lld ms)\n", ppm, tiempo_punto);
     printf("\n Navegacion con pulsador -> (Pulso corto: Bajar | Mantener pulsado: OK)");
@@ -383,7 +384,9 @@ void modo_configuracion()
     {
         printf("\033[2J\033[H");
         printf("\n -- Configuracion del programa --\n");
-        printf("Para volver al menu pulse ESC o mantenga pulsado\n\n");
+        printf("Para volver al menu pulse ESC o mantenga pulsado\n");
+        printf(" Para cambiar GPIOs, reiniciar con: ./main -g [GPIO_PULSADOR] -p [GPIO_MANIP_PUNTO] -r [GPIO_MANIP_RAYA] -f [FREQf (PPM)]\n\n");
+        
 
         
         long long ppm = 1200 / tiempo_punto;
@@ -680,6 +683,7 @@ void modo_prueba_letras()
 
     restaurar_terminal();
 }
+
 
 void modo_prueba_conjunto_letras(int num)
 {

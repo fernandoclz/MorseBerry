@@ -18,6 +18,146 @@ void mensaje_formato_args() {
     printf("Por ahora solo disponible opcion -g\n");
 }
 
+void prueba_conjunto_letras_aux()
+{
+    int opcion_resaltada = 1;
+    int ejecutar_opcion = 0;
+
+    while (continuar_ejecucion_hilo)
+    {
+        activar_modo_raw();
+
+        /* LIMPIAR PANTALLA */
+        printf("\033[2J\033[H");
+        oled_limpiar();
+
+        /* CABECERA SSH */
+        printf("--- MorseBerry | Prueba Palabras ---\n\n");
+        printf(" Selecciona dificultad:\n");
+        printf(" Navegacion con pulsador -> (Pulso corto: Bajar | Mantener pulsado: OK)\n");
+        printf(" Navegacion con teclado -> (Pulse numero de la opcion)\n\n");
+
+        /* CABECERA OLED */
+        oled_posicionar_cursor(2, 0);
+        oled_imprimir("PRUEBA PALABRAS");
+
+        const char *opciones_ssh[] = {
+            "1. Facil   (3 letras)",
+            "2. Medio   (5 letras)",
+            "3. Dificil (7 letras)",
+            "4. Volver"
+        };
+
+        const char *opciones_oled[] = {
+            "Facil (3)",
+            "Medio (5)",
+            "Dificil (7)",
+            "Volver"
+        };
+
+        /* DIBUJAR MENU SSH */
+        for (int i = 0; i < 4; i++)
+        {
+            if ((i + 1) == opcion_resaltada)
+                printf(" > %s < \n", opciones_ssh[i]);
+            else
+                printf("   %s   \n", opciones_ssh[i]);
+        }
+
+        /* DIBUJAR MENU OLED */
+        for (int i = 0; i < 4; i++)
+        {
+            char buffer[21];
+            oled_posicionar_cursor(0, i + 2);
+
+            if ((i + 1) == opcion_resaltada)
+                snprintf(buffer, sizeof(buffer), "> %s", opciones_oled[i]);
+            else
+                snprintf(buffer, sizeof(buffer), "  %s", opciones_oled[i]);
+
+            oled_imprimir(buffer);
+        }
+
+        ejecutar_opcion = 0;
+
+        while (ejecutar_opcion == 0 && continuar_ejecucion_hilo)
+        {
+            /* LECTURA TECLADO */
+            char tecla = 0;
+
+            if (read(STDIN_FILENO, &tecla, 1) > 0)
+            {
+                if (tecla >= '1' && tecla <= '4')
+                {
+                    ejecutar_opcion = tecla - '0';
+                }
+                else if (tecla == ' ' || tecla == 's' || tecla == 'S')
+                {
+                    opcion_resaltada = (opcion_resaltada % 4) + 1;
+                    break; /* redibujar menú */
+                }
+                else if (tecla == '\n' || tecla == '\r')
+                {
+                    ejecutar_opcion = opcion_resaltada;
+                }
+                else if (tecla == 27) /* ESC */
+                {
+                    ejecutar_opcion = 4;
+                }
+            }
+
+            /* LECTURA MORSE */
+            char lectura = 0;
+
+            pthread_mutex_lock(&mutex_morse);
+            if (simbolo_detectado != 0)
+            {
+                lectura = simbolo_detectado;
+                simbolo_detectado = 0;
+            }
+            pthread_mutex_unlock(&mutex_morse);
+
+            if (lectura != 0)
+            {
+                if (lectura == SIMBOLO_PUNTO ||
+                    lectura == SIMBOLO_RAYA)
+                {
+                    opcion_resaltada = (opcion_resaltada % 4) + 1;
+                    break; /* redibujar menú */
+                }
+                else if (lectura == SIMBOLO_MANTENER_PULSADO)
+                {
+                    ejecutar_opcion = opcion_resaltada;
+                }
+            }
+
+            usleep(10000);
+        }
+
+        /* EJECUTAR OPCION */
+        switch (ejecutar_opcion)
+        {
+            case 1:
+                modo_prueba_conjunto_letras(3);
+                break;
+
+            case 2:
+                modo_prueba_conjunto_letras(5);
+                break;
+
+            case 3:
+                modo_prueba_conjunto_letras(7);
+                break;
+
+            case 4:
+                restaurar_terminal();
+                return;
+        }
+
+        restaurar_terminal();
+    }
+}
+
 int main(int argc, char **argv) {
     if (argc < 1) {
         perror("Error al inicio del programa");
@@ -26,17 +166,27 @@ int main(int argc, char **argv) {
 
     mensaje_formato_args();
 
-    morse_frecuency = 700;
+    
     morse_gpio = GPIO_PREDET;
     manip_izq_gpio = GPIO_MANIP_IZQ;
     manip_der_gpio = GPIO_MANIP_DER;
     
 
     int opt;
-    while ((opt = (getopt(argc, argv, "g:f:"))) != -1) {
+    while ((opt = (getopt(argc, argv, "g:p:r:f:"))) != -1) {
         switch (opt) {
             case 'g': morse_gpio = atoi(optarg); break;
-            case 'f': morse_frecuency = atoi(optarg); break;
+            case 'p': manip_izq_gpio = atoi(optarg); break;
+            case 'r': manip_der_gpio = atoi(optarg); break;
+            case 'f': 
+                morse_frecuency = atoi(optarg); 
+                long long x = 1200 / morse_frecuency; 
+                tiempo_punto = x;
+                tiempo_raya = 3 * x;
+                tiempo_espacio = 7 * x;
+                desviacion = x / 2;
+                tiempo_mantener = 14 * x;
+            break;
             case '?': 
                 printf("Opcion no disponible\n");
                 mensaje_formato_args();
@@ -139,7 +289,8 @@ int main(int argc, char **argv) {
             case 1: modo_letra_a_letra(); break;
             case 2: modo_libre(); break;
             case 3: modo_prueba_letras(); break;
-            case 4: modo_prueba_conjunto_letras(2); break;
+            //case 4: modo_prueba_conjunto_letras(2); break;
+            case 4: prueba_conjunto_letras_aux(); break;
             case 5: modo_prueba_palabras(); break;
             case 6: modo_escucha_morse(); break;
             case 7: modo_configuracion(); break;
