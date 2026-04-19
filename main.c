@@ -170,7 +170,6 @@ int main(int argc, char **argv) {
     morse_gpio = GPIO_PREDET;
     manip_izq_gpio = GPIO_MANIP_IZQ;
     manip_der_gpio = GPIO_MANIP_DER;
-    morse_frecuency = 700;
     
 
     int opt;
@@ -180,8 +179,8 @@ int main(int argc, char **argv) {
             case 'p': manip_izq_gpio = atoi(optarg); break;
             case 'r': manip_der_gpio = atoi(optarg); break;
             case 'f': 
-                long long frecuency = atoi(optarg); 
-                long long x = 1200 / frecuency; 
+                morse_frecuency = atoi(optarg); 
+                long long x = 1200 / morse_frecuency; 
                 tiempo_punto = x;
                 tiempo_raya = 3 * x;
                 tiempo_espacio = 7 * x;

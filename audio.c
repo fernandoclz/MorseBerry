@@ -38,7 +38,7 @@ void *hilo_audio_alsa(void *arg)
         return NULL;
     }
 
-    int freq_tono = (morse_frecuency > 0) ? morse_frecuency : 700;
+    int freq_tono = 700;
     short *buffer = malloc(frames * 2 * sizeof(short));
     if (!buffer)
     {
@@ -56,7 +56,7 @@ void *hilo_audio_alsa(void *arg)
     {
         if (emitir_tono && sonido_activado)
         {
-            int freq_actual = (morse_frecuency > 0) ? morse_frecuency : 700;
+            int freq_actual = 700;
             double incremento_fase = 2.0 * M_PI * freq_actual / rate;
 
             for (int i = 0; i < (int)frames; i++)
