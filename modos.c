@@ -1149,7 +1149,7 @@ void modo_escucha_morse()
         morse_obtener_patron(caracter_objetivo, patron, &long_patron);
         patron[long_patron] = '\0';
 
-        printf("\n[Nivel %d] Escucha y escribe la letra [%s] (R para repetir): ", profundidad_actual, patron);
+        printf("\n[Nivel %d] Escucha y escribe la letra [%s] (ESPACIO para repetir): ", profundidad_actual, patron);
         fflush(stdout);
 
         // Mostrar en OLED
@@ -1179,7 +1179,7 @@ void modo_escucha_morse()
                     return;
                 }
 
-                if (tecla == 'r' || tecla == 'R') {
+                if (tecla == ' ') {
                     printf("\n[Repitiendo...]\n[Nivel %d] Escucha y escribe [%s]: ", profundidad_actual, patron);
                     fflush(stdout);
                     reproducir_morse_caracter(caracter_objetivo, tiempo_punto, tiempo_raya);
@@ -1210,9 +1210,7 @@ void modo_escucha_morse()
                         aciertos_nivel = 0; // Reiniciamos el contador para el nuevo nivel
                         aciertos_para_subir = 4*profundidad_actual; // Incrementamos el umbral para el siguiente nivel  
                         printf("\n--- ¡SUBES DE NIVEL! Símbolos de hasta %d elementos ---\n", profundidad_actual);
-                        oled_limpiar();
-                        oled_posicionar_cursor(0, 2);
-                        oled_imprimir("  ¡NIVEL UP!");
+
                         usleep(1500000);
                     }
                     

@@ -5,6 +5,11 @@
 #include <math.h>
 #include <alsa/asoundlib.h>
 
+// --- CONFIGURACIÓN DEL SINTETIZADOR ---
+#define AMPLITUD_MAX 16000    // Volumen (0 a 32767)
+#define FRECUENCIA_TONO 700   // Frecuencia del pitido en Hz
+#define TIEMPO_RAMPA_MS 5     // Tiempo de ataque/liberación en milisegundos
+
 void *hilo_audio_alsa(void *arg)
 {
     int err;
@@ -13,7 +18,6 @@ void *hilo_audio_alsa(void *arg)
     unsigned int rate = 44100;
     int dir = 0;
     
-    // 1. AUMENTAMOS LOS FRAMES: 1024 da ~23ms de margen, ideal para evitar chisporroteos
     snd_pcm_uframes_t frames = 1024; 
 
     if ((err = snd_pcm_open(&handle, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0)
@@ -30,7 +34,8 @@ void *hilo_audio_alsa(void *arg)
     snd_pcm_hw_params_set_rate_near(handle, params, &rate, &dir);
     snd_pcm_hw_params_set_period_size_near(handle, params, &frames, &dir);
 
-    snd_pcm_uframes_t buffer_size = frames * 4; // Aumentamos el ring buffer total
+    // Buffer amplio para evitar que ALSA sufra micro-cortes
+    snd_pcm_uframes_t buffer_size = 8192; 
     snd_pcm_hw_params_set_buffer_size_near(handle, params, &buffer_size);
 
     if ((err = snd_pcm_hw_params(handle, params)) < 0)
@@ -47,46 +52,43 @@ void *hilo_audio_alsa(void *arg)
         return NULL;
     }
 
+    // --- VARIABLES OPTIMIZADAS ---
     double fase = 0.0;
-    int freq_tono = 700;
-    double incremento_fase = 2.0 * M_PI * freq_tono / rate;
+    double incremento_fase = 2.0 * M_PI * FRECUENCIA_TONO / rate;
 
-    // 2. VARIABLES DE SUAVIZADO (Envolvente)
-    double amplitud_actual = 0.0;
-    double amplitud_objetivo = 0.0;
-    // factor_suavizado: Determina lo rápido que sube/baja el volumen. 
-    // 0.02 a 44100Hz significa una transición de ~2 milisegundos (perfecto para Morse)
-    double factor_suavizado = 0.02; 
+    // Cálculo de la rampa usando NÚMEROS ENTEROS (Mucho más rápido para la CPU)
+    int muestras_rampa = (rate * TIEMPO_RAMPA_MS) / 1000;
+    if (muestras_rampa == 0) muestras_rampa = 1; // Seguridad por si se pone a 0
+    
+    int incremento_amplitud = AMPLITUD_MAX / muestras_rampa;
+    int amplitud_actual = 0;
 
     memset(buffer, 0, frames * 2 * sizeof(short));
 
     while (continuar_ejecucion_hilo)
     {
-        // Actualizamos la frecuencia por si cambia dinámicamente
-        incremento_fase = 2.0 * M_PI * 700 / rate;
-        
-        // Decidimos la amplitud objetivo según el estado
-        amplitud_objetivo = (emitir_tono && sonido_activado) ? 16000.0 : 0.0;
-
         for (int i = 0; i < (int)frames; i++)
         {
-            // Acercamos progresivamente la amplitud actual a la objetivo
-            amplitud_actual += (amplitud_objetivo - amplitud_actual) * factor_suavizado;
-
-            short muestra = 0;
-            
-            // Solo calculamos el seno si hay volumen audible (optimización)
-            if (amplitud_actual > 1.0) {
-                muestra = (short)(amplitud_actual * sin(fase));
-                fase += incremento_fase;
-                if (fase >= 2.0 * M_PI) {
-                    fase -= 2.0 * M_PI;
-                }
+            // 1. CONTROL DE AMPLITUD (Aritmética rápida de enteros)
+            if (emitir_tono && sonido_activado) {
+                amplitud_actual += incremento_amplitud;
+                if (amplitud_actual > AMPLITUD_MAX) amplitud_actual = AMPLITUD_MAX;
             } else {
-                muestra = 0;
-                // Dejamos que la fase se mantenga contigua
-                fase += incremento_fase;
-                if (fase >= 2.0 * M_PI) fase -= 2.0 * M_PI;
+                amplitud_actual -= incremento_amplitud;
+                if (amplitud_actual < 0) amplitud_actual = 0;
+            }
+
+            // 2. GENERACIÓN DE LA ONDA
+            short muestra = 0;
+            if (amplitud_actual > 0) {
+                // Solo usamos coma flotante para el seno (inevitable)
+                muestra = (short)(amplitud_actual * sin(fase));
+            }
+
+            // Mantenemos la fase corriendo en bucle para evitar saltos (pops)
+            fase += incremento_fase;
+            if (fase >= 2.0 * M_PI) {
+                fase -= 2.0 * M_PI;
             }
 
             buffer[2 * i]     = muestra; // Canal Izquierdo
@@ -97,12 +99,13 @@ void *hilo_audio_alsa(void *arg)
 
         if (err == -EPIPE)
         {
-            // Under-run: Intentamos recuperarnos silenciosamente
+            // ALSA se quedó vacío temporalmente. Nos recuperamos.
             snd_pcm_prepare(handle);
+            amplitud_actual = 0; // RESET CRÍTICO: Evita un "chasquido" al reconectar
         }
         else if (err < 0)
         {
-            printf("ERROR Audio: %s\n", snd_strerror(err));
+            snd_pcm_recover(handle, err, 0);
         }
     }
 
