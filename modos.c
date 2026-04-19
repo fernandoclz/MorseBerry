@@ -4,6 +4,8 @@
 #include "traductor_morse.h"
 #include "pantalla_oled.h"
 #include "palabras.h"
+#include <time.h> 
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1100,7 +1102,7 @@ static void reproducir_morse_caracter(char caracter_aleatorio, long long tiempo_
 
 void modo_escucha_morse()
 {
-    printf("\nModo escucha morse: escucha el audio y escribe la letra con el teclado\n");
+    printf("\nModo escucha morse: avance escalonado con aleatoriedad\n");
     printf("Para volver al menu pulse ESC o mantenga pulsado\n");
 
     oled_limpiar();
@@ -1108,105 +1110,163 @@ void modo_escucha_morse()
     oled_imprimir("--- MORSEBERRY ---");
     oled_posicionar_cursor(0, 2);
     oled_imprimir(" Escucha Morse");
-    oled_posicionar_cursor(0, 3);
-    oled_imprimir("Escucha y escribe");
 
     activar_modo_raw();
 
-    int num_intentos_fallidos = 0;
-    char caracter_aleatorio = generar_char_random();
+    // Inicializamos la semilla aleatoria
+    srand(time(NULL));
 
-    printf("Escucha y escribe la letra (R para repetir): ");
-    fflush(stdout);
-    reproducir_morse_caracter(caracter_aleatorio, tiempo_punto, tiempo_raya);
+    int num_intentos_fallidos = 0;
+    int profundidad_actual = 1;  // Empezamos en el nivel 1 (letras de 1 símbolo: E, T)
+    int aciertos_nivel = 0;
+    int aciertos_para_subir = 4; // Tras 4 aciertos, subimos la dificultad
+    int max_profundidad = 5;     // La profundidad máxima de tu árbol
+
+    char caracter_objetivo;
+    char patron[16];
+    int long_patron = 0;
+    char buf_oled_patron[21];
 
     while (1)
     {
-        char tecla;
-        if (read(STDIN_FILENO, &tecla, 1) > 0)
+        // 1. GENERAR CARÁCTER: Aleatorio pero dentro de la profundidad desbloqueada
+        do {
+            int min_idx = 1; // Siempre repasamos desde la raíz
+            // Magia binaria: el índice máximo de un nivel en un árbol aplanado es (2^(nivel+1)) - 2
+            int max_idx = (1 << (profundidad_actual + 1)) - 2; 
+            
+            int tam_arbol = morse_obtener_tamano_arbol();
+            if (max_idx > tam_arbol) max_idx = tam_arbol;
+
+            // Elegir índice aleatorio en los niveles desbloqueados
+            int random_idx = min_idx + rand() % (max_idx - min_idx + 1);
+            caracter_objetivo = morse_obtener_caracter_por_indice(random_idx);
+
+        // Repetir si cae en un hueco vacío '?' o espacio del árbol
+        } while (caracter_objetivo == '?' || caracter_objetivo == ' ');
+
+        // 2. OBTENER EL PATRÓN PARA LAS PANTALLAS
+        morse_obtener_patron(caracter_objetivo, patron, &long_patron);
+        patron[long_patron] = '\0';
+
+        printf("\n[Nivel %d] Escucha y escribe la letra [%s] (R para repetir): ", profundidad_actual, patron);
+        fflush(stdout);
+
+        // Mostrar en OLED
+        snprintf(buf_oled_patron, sizeof(buf_oled_patron), "Morse: %s", patron);
+        oled_posicionar_cursor(0, 3);
+        oled_imprimir("                    ");
+        oled_posicionar_cursor(0, 3);
+        oled_imprimir(buf_oled_patron);
+        oled_posicionar_cursor(0, 4);
+        oled_imprimir("                    ");
+
+        usleep(200000);
+        reproducir_morse_caracter(caracter_objetivo, tiempo_punto, tiempo_raya);
+
+        int avanzar_siguiente_letra = 0;
+
+        // 3. BUCLE DE LECTURA HASTA ACERTAR O FALLAR MUCHO
+        while (!avanzar_siguiente_letra)
         {
-            if (tecla == 27) // ESC
-                break;
-
-            if (tecla == 'r' || tecla == 'R') {
-                printf("\n[Repitiendo...]\n");
-                reproducir_morse_caracter(caracter_aleatorio, tiempo_punto, tiempo_raya);
-                printf("Escucha y escribe la letra: ");
-                fflush(stdout);
-                continue;
-            }
-
-            if (!isalpha(tecla))
-                continue;
-
-            char escrita = toupper(tecla);
-            char objetivo = toupper(caracter_aleatorio);
-
-            if (escrita == objetivo)
+            char tecla;
+            if (read(STDIN_FILENO, &tecla, 1) > 0)
             {
-                printf(" -> [ACIERTO] %c\n", escrita);
-                num_intentos_fallidos = 0;
-                oled_posicionar_cursor(0, 4);
-                oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 4);
-                oled_imprimir("[ACIERTO]");
-                usleep(700000);
-                caracter_aleatorio = generar_char_random();
-            }
-            else
-            {
-                printf(" -> [FALLO] Escribiste %c\n", escrita);
-                num_intentos_fallidos++;
+                if (tecla == 27) // ESC
+                {
+                    emitir_tono = 0;
+                    restaurar_terminal();
+                    return;
+                }
 
-                char buf_oled[21];
-                snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", 7 - num_intentos_fallidos);
-                oled_posicionar_cursor(0, 4);
-                oled_imprimir("                    ");
-                oled_posicionar_cursor(0, 4);
-                oled_imprimir(buf_oled);
+                if (tecla == 'r' || tecla == 'R') {
+                    printf("\n[Repitiendo...]\n[Nivel %d] Escucha y escribe [%s]: ", profundidad_actual, patron);
+                    fflush(stdout);
+                    reproducir_morse_caracter(caracter_objetivo, tiempo_punto, tiempo_raya);
+                    continue;
+                }
 
-                if (num_intentos_fallidos <= 6) {
-                    printf("Intentalo de nuevo (%d intentos restantes)\n", 7 - num_intentos_fallidos);
-                } else {
-                    printf("Demasiados fallos, la letra era %c, cambiando letra\n", objetivo);
+                if (!isalnum(tecla))
+                    continue;
+
+                char escrita = toupper(tecla);
+                char objetivo = toupper(caracter_objetivo);
+
+                if (escrita == objetivo)
+                {
+                    printf(" -> [ACIERTO] %c\n", escrita);
                     num_intentos_fallidos = 0;
-                    caracter_aleatorio = generar_char_random();
+                    aciertos_nivel++;
+
+                    oled_posicionar_cursor(0, 4);
+                    oled_imprimir("                    ");
+                    oled_posicionar_cursor(0, 4);
+                    oled_imprimir("[ACIERTO]");
+                    usleep(700000);
+
+                    // Lógica para subir de nivel
+                    if (aciertos_nivel >= aciertos_para_subir && profundidad_actual < max_profundidad) {
+                        profundidad_actual++;
+                        aciertos_nivel = 0; // Reiniciamos el contador para el nuevo nivel
+                        printf("\n--- ¡SUBES DE NIVEL! Símbolos de hasta %d elementos ---\n", profundidad_actual);
+                        oled_limpiar();
+                        oled_posicionar_cursor(0, 2);
+                        oled_imprimir("  ¡NIVEL UP!");
+                        usleep(1500000);
+                    }
+                    
+                    avanzar_siguiente_letra = 1; // Romper el bucle interior para sacar otra letra
+                }
+                else
+                {
+                    printf(" -> [FALLO] Escribiste %c\n", escrita);
+                    num_intentos_fallidos++;
+
+                    char buf_oled[21];
+                    snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", 4 - num_intentos_fallidos);
+                    oled_posicionar_cursor(0, 4);
+                    oled_imprimir("                    ");
+                    oled_posicionar_cursor(0, 4);
+                    oled_imprimir(buf_oled);
+
+                    if (num_intentos_fallidos < 4) {
+                        printf("Intentalo de nuevo (%d intentos restantes)\n", 4 - num_intentos_fallidos);
+                    } else {
+                        printf("Demasiados fallos. La letra era %c.\n", objetivo);
+                        num_intentos_fallidos = 0;
+                        
+                        // Pequeña penalización: restamos un acierto si fallan mucho para que no suban de nivel sin saberlo
+                        if (aciertos_nivel > 0) aciertos_nivel--; 
+                        
+                        usleep(1500000);
+                        avanzar_siguiente_letra = 1; // Pasamos a la siguiente letra
+                    }
                 }
             }
 
-            printf("Escucha y escribe la letra: ");
-            fflush(stdout);
-            reproducir_morse_caracter(caracter_aleatorio, tiempo_punto, tiempo_raya);
+            // Control de hardware (pulsador físico para salir)
+            char lectura = 0;
+            pthread_mutex_lock(&mutex_morse);
+            if (simbolo_detectado != 0) {
+                lectura = simbolo_detectado;
+                simbolo_detectado = 0;
+            }
+            pthread_mutex_unlock(&mutex_morse);
 
-            oled_posicionar_cursor(0, 3);
-            oled_imprimir("                    ");
-            oled_posicionar_cursor(0, 3);
-            oled_imprimir("Escucha y escribe");
-            oled_posicionar_cursor(0, 4);
-            oled_imprimir("                    ");
+            if (lectura == SIMBOLO_MANTENER_PULSADO) {
+                oled_limpiar();
+                oled_posicionar_cursor(0, 2);
+                oled_imprimir(" Volviendo al");
+                oled_posicionar_cursor(0, 3);
+                oled_imprimir("    menu...");
+                usleep(1000000); // Pequeña pausa para que se lea la pantalla
+                
+                emitir_tono = 0;
+                restaurar_terminal();
+                return;
+            }
+
+            usleep(10000);
         }
-
-        // Pulsador fisico para volver
-        char lectura = 0;
-        pthread_mutex_lock(&mutex_morse);
-        if (simbolo_detectado != 0) {
-            lectura = simbolo_detectado;
-            simbolo_detectado = 0;
-        }
-        pthread_mutex_unlock(&mutex_morse);
-
-        if (lectura == SIMBOLO_MANTENER_PULSADO) {
-            oled_limpiar();
-            oled_posicionar_cursor(0, 2);
-            oled_imprimir(" Volviendo al");
-            oled_posicionar_cursor(0, 3);
-            oled_imprimir("    menu...");
-            break;
-        }
-
-        usleep(10000);
     }
-
-    emitir_tono = 0;
-    restaurar_terminal();
 }

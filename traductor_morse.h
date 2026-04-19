@@ -12,5 +12,8 @@ void imprime_letra_como_morse(char letra);
 
 void morse_obtener_patron(char letra, char *buffer_out, int *longitud_out);
 
+int morse_obtener_tamano_arbol();
+
+char morse_obtener_caracter_por_indice(int indice);
 
 #endif

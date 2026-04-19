@@ -114,3 +114,13 @@ void morse_obtener_patron(char letra, char *buffer_out, int *longitud_out)
     for (int i = pos - 1; i >= 0; i--)
         buffer_out[(*longitud_out)++] = tmp[i];
 }
+
+int morse_obtener_tamano_arbol() {
+    return sizeof(arbol_morse) - 1;
+}
+
+char morse_obtener_caracter_por_indice(int indice) {
+    if (indice >= 0 && indice < sizeof(arbol_morse) - 1)
+        return arbol_morse[indice];
+    return '?';
+}
