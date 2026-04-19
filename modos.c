@@ -1119,7 +1119,7 @@ void modo_escucha_morse()
     int num_intentos_fallidos = 0;
     int profundidad_actual = 1;  // Empezamos en el nivel 1 (letras de 1 símbolo: E, T)
     int aciertos_nivel = 0;
-    int aciertos_para_subir = 4; // Tras 4 aciertos, subimos la dificultad
+    int aciertos_para_subir = 4*profundidad_actual; // Tras x aciertos, subimos la dificultad
     int max_profundidad = 5;     // La profundidad máxima de tu árbol
 
     char caracter_objetivo;
@@ -1208,6 +1208,7 @@ void modo_escucha_morse()
                     if (aciertos_nivel >= aciertos_para_subir && profundidad_actual < max_profundidad) {
                         profundidad_actual++;
                         aciertos_nivel = 0; // Reiniciamos el contador para el nuevo nivel
+                        aciertos_para_subir = 4*profundidad_actual; // Incrementamos el umbral para el siguiente nivel  
                         printf("\n--- ¡SUBES DE NIVEL! Símbolos de hasta %d elementos ---\n", profundidad_actual);
                         oled_limpiar();
                         oled_posicionar_cursor(0, 2);
@@ -1222,15 +1223,18 @@ void modo_escucha_morse()
                     printf(" -> [FALLO] Escribiste %c\n", escrita);
                     num_intentos_fallidos++;
 
+                    int intentos_totales = 4 ;
+                    int intentos_restantes = intentos_totales - num_intentos_fallidos;
+
                     char buf_oled[21];
-                    snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", 4 - num_intentos_fallidos);
+                    snprintf(buf_oled, sizeof(buf_oled), "[FALLO] %d rest.", intentos_restantes);
                     oled_posicionar_cursor(0, 4);
                     oled_imprimir("                    ");
                     oled_posicionar_cursor(0, 4);
                     oled_imprimir(buf_oled);
 
-                    if (num_intentos_fallidos < 4) {
-                        printf("Intentalo de nuevo (%d intentos restantes)\n", 4 - num_intentos_fallidos);
+                    if (intentos_restantes > 0) {
+                        printf("Intentalo de nuevo (%d intentos restantes)\n", intentos_restantes);
                     } else {
                         printf("Demasiados fallos. La letra era %c.\n", objetivo);
                         num_intentos_fallidos = 0;
