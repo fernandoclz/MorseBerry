@@ -1,3 +1,31 @@
+/*
+
+Este módulo utiliza y adapta la librería para controladores SSD1306 
+desarrollada por Aleksander Alekseev.
+
+MIT License
+
+Copyright (c) 2018 Aleksander Alekseev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #include "pantalla_oled.h"
 #include "extern/ssd1306.h"
 #include "extern/ssd1306_fonts.h"
@@ -11,7 +39,7 @@ extern int i2c_fd;
 
 // Inicializa el I2C de Linux y la pantalla
 void oled_inicializar() {
-    char *filename = "/dev/i2c-1"; // Bus I2C estándar en Raspberry Pi
+    char *filename = "/dev/i2c-1"; 
     if ((i2c_fd = open(filename, O_RDWR)) < 0) {
         printf("Error al abrir el bus I2C.\n");
         return;
@@ -32,7 +60,6 @@ void oled_limpiar() {
 }
 
 void oled_posicionar_cursor(uint8_t x, uint8_t y) {
-    // Si tus "Y" en main.c son "páginas" (0 a 7), multiplícalo por 10 (altura de fuente) o usa y directo.
     ssd1306_SetCursor(x, y * 10); 
 }
 
