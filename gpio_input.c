@@ -2,6 +2,7 @@
 #include "config.h"
 #include "utils.h"
 #include <gpiod.h>
+#include <unistd.h>
 
 void *funcion_hilo_gpio(void *arg)
 {
@@ -40,12 +41,14 @@ void *funcion_hilo_gpio(void *arg)
 
                         if (linea == manip_izq_gpio) {
                             simbolo_detectado = SIMBOLO_PUNTO;
+                            
                             emitir_tono = 1;
                             usleep(tiempo_punto * 1000); //emitir tono durante el tiempo del punto
                             emitir_tono = 0;
                         }
                         else if (linea == manip_der_gpio){
                             simbolo_detectado = SIMBOLO_RAYA;
+                            
                             emitir_tono = 1;
                             usleep(tiempo_raya * 1000); //emitir tono durante el tiempo de la raya
                             emitir_tono = 0;

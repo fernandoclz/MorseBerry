@@ -394,7 +394,9 @@ void modo_configuracion()
         printf("PPM actual : %lld\n", ppm);
         printf("%s 1. Aumentar ppm\n", opcion_resaltada == 1 ? ">" : " ");
         printf("%s 2. Reducir ppm\n", opcion_resaltada == 2 ? ">" : " ");
-        printf("%s 3. Volver\n", opcion_resaltada == 3 ? ">" : " ");
+        printf("%s 3. Aumentar 5 ppm\n", opcion_resaltada == 3 ? ">" : " ");
+        printf("%s 4. Reducir 5 ppm\n", opcion_resaltada == 4 ? ">" : " ");
+        printf("%s 5. Volver\n", opcion_resaltada == 5 ? ">" : " ");
 
         // OLED:
         // [0] -- Configuracion --
@@ -405,8 +407,8 @@ void modo_configuracion()
         oled_posicionar_cursor(0, 0);
         oled_imprimir("- Configuracion -");
         {
-            const char *cfg_oled[] = {"Est. PPM", "Est. Punto(ms)", "Volver"};
-            for (int i = 0; i < 3; i++)
+            const char *cfg_oled[] = {"+PPM", "-PPM", "+5 PPM", "-5 PPM", "Volver"};
+            for (int i = 0; i < 5; i++)
             {
                 char buf[21];
                 oled_posicionar_cursor(0, 2 + i);
@@ -426,13 +428,13 @@ void modo_configuracion()
             char tecla = 0;
             if (read(STDIN_FILENO, &tecla, 1) > 0)
             {
-                if (tecla >= '1' && tecla <= '3')
+                if (tecla >= '1' && tecla <= '5')
                 {
                     ejecutar_opcion = tecla - '0';
                 }
                 else if (tecla == ' ' || tecla == 's' || tecla == 'S')
                 {
-                    opcion_resaltada = (opcion_resaltada % 3) + 1;
+                    opcion_resaltada = (opcion_resaltada % 5) + 1;
                 }
                 else if (tecla == '\n')
                 {
@@ -458,13 +460,13 @@ void modo_configuracion()
             {
                 if (lectura == SIMBOLO_PUNTO || lectura == SIMBOLO_RAYA)
                 {
-                    opcion_resaltada = (opcion_resaltada % 3) + 1;
+                    opcion_resaltada = (opcion_resaltada % 5) + 1;
                     break;
                 }
                 else if (lectura == SIMBOLO_MANTENER_PULSADO)
                 {
                     ejecutar_opcion = opcion_resaltada;
-                    if (ejecutar_opcion == 3)
+                    if (ejecutar_opcion == 5)
                     {
                         oled_limpiar();
                         oled_posicionar_cursor(0, 2);
@@ -515,7 +517,37 @@ void modo_configuracion()
             sleep(1);
 
         }
-        else if (ejecutar_opcion == 3)
+        else if (ejecutar_opcion == 3){ //aumentar en 5 ppm
+            
+            long long ppm = 1200 / tiempo_punto;
+            ppm= ppm+5;
+
+            long long x = 1200 / ppm; 
+            tiempo_punto = x;
+            tiempo_raya = 3 * x;
+            tiempo_espacio = 7 * x;
+            desviacion = x * 0.8;
+            tiempo_mantener = 14 * x;
+
+            sleep(1);
+        }
+        else if(ejecutar_opcion == 4){ //reducir en 5ppm
+            
+            long long ppm = 1200 / tiempo_punto;
+            ppm=ppm-5;
+            if(ppm < 1)
+                ppm = 1;
+
+            long long x = 1200 / ppm; 
+            tiempo_punto = x;
+            tiempo_raya = 3 * x;
+            tiempo_espacio = 7 * x;
+            desviacion = x * 0.8;
+            tiempo_mantener = 14 * x;
+
+            sleep(1);
+        }
+        else if (ejecutar_opcion == 5)
         { // salir
 
             continuar_bucle = 0;
