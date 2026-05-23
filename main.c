@@ -286,14 +286,49 @@ int main(int argc, char **argv) {
 
         // EJECUCION DE OPCIONES
         switch (ejecutar_opcion) {
-            case 1: modo_letra_a_letra(); break;
-            case 2: modo_libre(); break;
-            case 3: modo_prueba_letras(); break;
+            case 1: 
+                pthread_mutex_lock(&mutex_morse);
+                simbolo_detectado = 0;
+                pthread_mutex_unlock(&mutex_morse);
+                modo_letra_a_letra(); 
+                break;
+            case 2:
+                pthread_mutex_lock(&mutex_morse);
+                simbolo_detectado = 0;
+                pthread_mutex_unlock(&mutex_morse); 
+                modo_libre(); 
+                break;
+            case 3: 
+                pthread_mutex_lock(&mutex_morse);
+                simbolo_detectado = 0;
+                pthread_mutex_unlock(&mutex_morse); 
+                modo_prueba_letras(); 
+                break;
             //case 4: modo_prueba_conjunto_letras(2); break;
-            case 4: prueba_conjunto_letras_aux(); break;
-            case 5: modo_prueba_palabras(); break;
-            case 6: modo_escucha_morse(); break;
-            case 7: modo_configuracion(); break;
+            case 4: 
+                pthread_mutex_lock(&mutex_morse);
+                simbolo_detectado = 0;
+                pthread_mutex_unlock(&mutex_morse); 
+                prueba_conjunto_letras_aux(); 
+                break;
+            case 5: 
+                pthread_mutex_lock(&mutex_morse);
+                simbolo_detectado = 0;
+                pthread_mutex_unlock(&mutex_morse); 
+                modo_prueba_palabras(); 
+                break;
+            case 6: 
+                pthread_mutex_lock(&mutex_morse);
+                simbolo_detectado = 0;
+                pthread_mutex_unlock(&mutex_morse); 
+                modo_escucha_morse(); 
+                break;
+            case 7: 
+                pthread_mutex_lock(&mutex_morse);
+                simbolo_detectado = 0;
+                pthread_mutex_unlock(&mutex_morse); 
+                modo_configuracion(); 
+                break;
             case 8: 
                 // Invertimos el estado del sonido
                 sonido_activado = !sonido_activado; 
