@@ -10,14 +10,14 @@
 #define GPIO_MANIP_DER 23
 #define NUM_MODOS_MENU 9
 
-// TIEMPOS POR DEFECTO -> 12ppm, palabras por minuto
-#define TIEMPO_PUNTO 100
-#define TIEMPO_RAYA 300
-#define TIEMPO_ESPACIO 700
-#define DESVIACION 50
-#define TIEMPO_MANTENER 1500
+//tiempo por defecto -> 12ppm, palabras por minuto
+#define TIEMPO_PUNTO 100    //1200/12
+#define TIEMPO_RAYA 300     // 3x
+#define TIEMPO_ESPACIO 700  //7x
+#define DESVIACION 80       //80% de punto
+#define TIEMPO_MANTENER 1400    //14x
 
-// SIMBOLOS
+//simbolos
 #define SIMBOLO_PUNTO 1
 #define SIMBOLO_RAYA 2
 #define SIMBOLO_ESPACIO_CORTO 3
@@ -25,7 +25,7 @@
 #define SIMBOLO_DESCONOCIDO 5
 #define SIMBOLO_MANTENER_PULSADO 6
 
-// Variables globales compartidas (definidas en globals.c)
+//variables globales compartidas (definidas en globals.c)
 extern long long tiempo_punto;
 extern long long tiempo_raya;
 extern long long tiempo_espacio;

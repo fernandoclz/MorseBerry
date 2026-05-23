@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <time.h>
 
-static struct termios oldt; // Local al archivo
+static struct termios oldt; 
 
 long long obtener_tiempo_actual() {
     struct timespec ts;

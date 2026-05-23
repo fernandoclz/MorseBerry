@@ -1,6 +1,6 @@
 /*
 
-Este módulo utiliza y adapta la librería para controladores SSD1306 
+Este modulo utiliza y adapta la libreria para controladores SSD1306 
 desarrollada por Aleksander Alekseev.
 
 MIT License
@@ -37,7 +37,7 @@ SOFTWARE.
 
 extern int i2c_fd;
 
-// Inicializa el I2C de Linux y la pantalla
+//inicializa I2C de linux y la pantalla
 void oled_inicializar() {
     char *filename = "/dev/i2c-1"; 
     if ((i2c_fd = open(filename, O_RDWR)) < 0) {
@@ -45,7 +45,7 @@ void oled_inicializar() {
         return;
     }
     
-    // Dirección por defecto del SSD1306 suele ser 0x3C
+    //dir por defecto
     if (ioctl(i2c_fd, I2C_SLAVE, 0x3C) < 0) {
         printf("Error al contactar con el dispositivo I2C.\n");
         return;
@@ -64,15 +64,15 @@ void oled_posicionar_cursor(uint8_t x, uint8_t y) {
 }
 
 void oled_imprimir(const char* texto) {
-    // Usa la fuente 7x10 proporcionada en ssd1306_fonts.c
+    //fuente 7x10 proporcionada en ssd1306_fonts.c
     ssd1306_WriteString((char*)texto, Font_7x10, White);
     ssd1306_UpdateScreen();
 }
 
 void oled_cerrar() {
-    oled_limpiar(); // Dejamos la pantalla en negro
+    oled_limpiar(); //pantalla en negro
     if (i2c_fd >= 0) {
-        close(i2c_fd); // Cerramos el bus I2C
+        close(i2c_fd); //cerramos bus I2C
         i2c_fd = -1;
     }
 }

@@ -5,7 +5,7 @@
 #include <gpiod.h>
 #include <pthread.h>
 
-// Cabeceras de nuestros propios módulos
+// Cabeceras de nuestros propios modulos
 #include "config.h"
 #include "utils.h"
 #include "audio.h"
@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
                 tiempo_punto = x;
                 tiempo_raya = 3 * x;
                 tiempo_espacio = 7 * x;
-                desviacion = x / 2;
+                desviacion = x * 0.8;
                 tiempo_mantener = 14 * x;
             break;
             case '?': 
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
 
     srand(time(NULL));
 
-    // INICIALIZACIÓN GPIO
+    //CONFIGURACION GPIO
     struct gpiod_chip *chip = gpiod_chip_open("/dev/gpiochip0");
     if (!chip) {
         perror("Error al abrir chip");
@@ -226,7 +226,7 @@ int main(int argc, char **argv) {
     printf("Iniciando mi driver OLED por hardware...\n");
     oled_inicializar(); 
 
-    // CREACIÓN DE HILOS
+    // CREACION DE HILOS
     pthread_t thread_id, thread_audio_id;
     if (pthread_create(&thread_id, NULL, funcion_hilo_gpio, (void *)request) != 0) {
         perror("Error al crear hilo GPIO");
@@ -240,7 +240,7 @@ int main(int argc, char **argv) {
 
     printf("--- ENTRENADOR MORSE INICIADO (GPIO: %d) ---\n", morse_gpio);
 
-    // BUCLE PRINCIPAL MENÚ
+    // BUCLE MENU PRINCIPAL
     int opcion_resaltada = 1;
     int ejecutar_opcion = 0;
 
@@ -284,7 +284,7 @@ int main(int argc, char **argv) {
             usleep(10000);
         }
 
-        // EJECUCIÓN DE OPCIONES
+        // EJECUCION DE OPCIONES
         switch (ejecutar_opcion) {
             case 1: modo_letra_a_letra(); break;
             case 2: modo_libre(); break;
@@ -309,7 +309,7 @@ int main(int argc, char **argv) {
     // LIMPIEZA Y CIERRE
     continuar_ejecucion_hilo = 0;
     pthread_join(thread_id, NULL);
-    pthread_join(thread_audio_id, NULL); // Buena práctica añadir el cierre del segundo hilo
+    pthread_join(thread_audio_id, NULL);
     gpiod_line_request_release(request);
     gpiod_chip_close(chip);
     oled_cerrar();

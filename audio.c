@@ -5,10 +5,10 @@
 #include <math.h>
 #include <alsa/asoundlib.h>
 
-// --- CONFIGURACIÓN DEL SINTETIZADOR ---
-#define AMPLITUD_MAX 16000    // Volumen (0 a 32767)
-#define FRECUENCIA_TONO 700   // Frecuencia del pitido en Hz
-#define TIEMPO_RAMPA_MS 5     // Tiempo de ataque/liberación en milisegundos
+// CONFIGURACION SINTETIZADOR
+#define AMPLITUD_MAX 16000      // Volumen (0 - 32767)
+#define FRECUENCIA_TONO 700     // Frecuencia pitido en Hz
+#define TIEMPO_RAMPA_MS 5       // Tiempo ataque en ms
 
 void *hilo_audio_alsa(void *arg)
 {
@@ -34,7 +34,7 @@ void *hilo_audio_alsa(void *arg)
     snd_pcm_hw_params_set_rate_near(handle, params, &rate, &dir);
     snd_pcm_hw_params_set_period_size_near(handle, params, &frames, &dir);
 
-    // Buffer amplio para evitar que ALSA sufra micro-cortes
+    //buffer grande para evitar microcortes en ALSA
     snd_pcm_uframes_t buffer_size = 8192; 
     snd_pcm_hw_params_set_buffer_size_near(handle, params, &buffer_size);
 
@@ -52,13 +52,13 @@ void *hilo_audio_alsa(void *arg)
         return NULL;
     }
 
-    // --- VARIABLES OPTIMIZADAS ---
+    //variables optimizadas
     double fase = 0.0;
     double incremento_fase = 2.0 * M_PI * FRECUENCIA_TONO / rate;
 
-    // Cálculo de la rampa usando NÚMEROS ENTEROS (Mucho más rápido para la CPU)
+    //calculo rampa
     int muestras_rampa = (rate * TIEMPO_RAMPA_MS) / 1000;
-    if (muestras_rampa == 0) muestras_rampa = 1; // Seguridad por si se pone a 0
+    if (muestras_rampa == 0) muestras_rampa = 1; //control seguridad por si se pone 0
     
     int incremento_amplitud = AMPLITUD_MAX / muestras_rampa;
     int amplitud_actual = 0;
@@ -69,7 +69,7 @@ void *hilo_audio_alsa(void *arg)
     {
         for (int i = 0; i < (int)frames; i++)
         {
-            // 1. CONTROL DE AMPLITUD (Aritmética rápida de enteros)
+            //1 control amplitud
             if (emitir_tono && sonido_activado) {
                 amplitud_actual += incremento_amplitud;
                 if (amplitud_actual > AMPLITUD_MAX) amplitud_actual = AMPLITUD_MAX;
@@ -78,30 +78,29 @@ void *hilo_audio_alsa(void *arg)
                 if (amplitud_actual < 0) amplitud_actual = 0;
             }
 
-            // 2. GENERACIÓN DE LA ONDA
+            //2 generación onda
             short muestra = 0;
             if (amplitud_actual > 0) {
-                // Solo usamos coma flotante para el seno (inevitable)
+                //coma flotantes para el seno
                 muestra = (short)(amplitud_actual * sin(fase));
             }
 
-            // Mantenemos la fase corriendo en bucle para evitar saltos (pops)
+            //mantenemos fase corriendo para evitar saltos
             fase += incremento_fase;
             if (fase >= 2.0 * M_PI) {
                 fase -= 2.0 * M_PI;
             }
 
-            buffer[2 * i]     = muestra; // Canal Izquierdo
-            buffer[2 * i + 1] = muestra; // Canal Derecho
+            buffer[2 * i]     = muestra; //canal izq
+            buffer[2 * i + 1] = muestra; //canal der
         }
 
         err = snd_pcm_writei(handle, buffer, frames);
 
         if (err == -EPIPE)
         {
-            // ALSA se quedó vacío temporalmente. Nos recuperamos.
             snd_pcm_prepare(handle);
-            amplitud_actual = 0; // RESET CRÍTICO: Evita un "chasquido" al reconectar
+            amplitud_actual = 0; //reset para evitar chasquidos al reiniciar
         }
         else if (err < 0)
         {
