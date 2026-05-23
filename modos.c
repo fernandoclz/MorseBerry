@@ -18,7 +18,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
     printf("\033[2J\033[H");
     oled_limpiar();
 
-    // 1. DIBUJAR CABECERA (Consola SSH)
+    //1 dibujar cabecera (Consola SSH)
     printf("--- MorseBerry ---\n\n");
     printf(" Consola: ./main -g [GPIO_PULSADOR] -p [GPIO_MANIP_PUNTO] -r [GPIO_MANIP_RAYA] -f [FREQf (PPM)]\n");
     long long ppm = 1200 / tiempo_punto;
@@ -30,7 +30,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
 
     char txt_sonido_oled[21];
     snprintf(txt_sonido_oled, sizeof(txt_sonido_oled), "Sonido [%s]", sonido_activado ? "ON" : "OFF");
-    // 2. DIBUJAR CABECERA (OLED)
+    //2 dibujar cabecera (OLED)
     oled_posicionar_cursor(10, 0);
     oled_imprimir("--- MORSEBERRY ---");
 
@@ -58,7 +58,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
         "Salir"
     };
 
-    // 3. DIBUJAR OPCIONES EN CONSOLA SSH
+    //3 dibujar opciones en ssh
     for (int i = 0; i < NUM_MODOS_MENU; i++)
     {
         if ((i + 1) == opcion_resaltada)
@@ -67,7 +67,7 @@ void dibujar_menu_interfaz(int opcion_resaltada)
             printf("   %s   \n", opciones_ssh[i]);
     }
 
-    // 4. DIBUJAR OPCIONES EN OLED (scroll centrado en la opción resaltada)
+    //4 dibujar opciones en oled
     int max_opciones_visibles_oled = 4;
 
     int indice_inicio_scroll = opcion_resaltada - 1 - (max_opciones_visibles_oled / 2);
@@ -194,7 +194,7 @@ void modo_letra_a_letra()
                 oled_imprimir("                    ");
                 oled_posicionar_cursor(0, 4);
                 oled_imprimir(buf);
-                // Limpiar morse y preparar siguiente
+                //limpiar morse y preparar siguiente
                 morse_actual[0] = '\0';
                 oled_posicionar_cursor(0, 3);
                 oled_imprimir("Morse:");
@@ -221,6 +221,7 @@ void modo_letra_a_letra()
     restaurar_terminal();
 }
 
+
 void modo_libre()
 {
     printf("\nModo Libre\n");
@@ -229,8 +230,6 @@ void modo_libre()
     // OLED:
     // [0] --- MORSEBERRY ---
     // [1]   Modo Libre
-    // [2] hola mundo...
-    // [3] Morse: ..
     oled_limpiar();
     oled_posicionar_cursor(10, 0);
     oled_imprimir("--- MORSEBERRY ---");
@@ -423,7 +422,7 @@ void modo_configuracion()
 
         while (ejecutar_opcion == 0)
         {
-            // --- TECLADO ---
+            // teclado
             char tecla = 0;
             if (read(STDIN_FILENO, &tecla, 1) > 0)
             {
@@ -491,7 +490,7 @@ void modo_configuracion()
             tiempo_punto = x;
             tiempo_raya = 3 * x;
             tiempo_espacio = 7 * x;
-            desviacion = x / 2;
+            desviacion = x * 0.8;
             tiempo_mantener = 14 * x;
 
             sleep(1);
@@ -510,7 +509,7 @@ void modo_configuracion()
             tiempo_punto = x;
             tiempo_raya = 3 * x;
             tiempo_espacio = 7 * x;
-            desviacion = x / 2;
+            desviacion = x * 0.8;
             tiempo_mantener = 14 * x;
 
             sleep(1);
@@ -581,13 +580,13 @@ void modo_prueba_letras()
         {
             if (lectura == SIMBOLO_MANTENER_PULSADO)
             {
-                // [I2C OLED]: Mostrar mensaje de "Volviendo al menú..."
+                //OLED: mostrar "Volviendo al menú..."
                 oled_limpiar();
                 oled_posicionar_cursor(0, 2);
                 oled_imprimir(" Volviendo al");
                 oled_posicionar_cursor(0, 3);
                 oled_imprimir("    menu...");
-                break; // Sale del bucle del modo y vuelve al while del main()
+                break; //sale del bucle del modo y vuelve al while del main()
             }
             else if (lectura == SIMBOLO_PUNTO)
             {
@@ -601,7 +600,7 @@ void modo_prueba_letras()
             }
             else if (lectura == SIMBOLO_ESPACIO_LARGO)
             {
-                // Obtenemos la letra final y el estado se reinicia solo
+                //obtener letra final y estado reiniciado solo
                 char letra_final = morse_obtener_resultado();
                 int fallado = 1;
                 char buf_oled[21];
@@ -1113,14 +1112,14 @@ void modo_escucha_morse()
 
     activar_modo_raw();
 
-    // Inicializamos la semilla aleatoria
+    //inicializacion semilla de aleatoriedad
     srand(time(NULL));
 
     int num_intentos_fallidos = 0;
-    int profundidad_actual = 1;  // Empezamos en el nivel 1 (letras de 1 símbolo: E, T)
+    int profundidad_actual = 1;  //inicializar arbol a nivel 1 (letras E y T)
     int aciertos_nivel = 0;
-    int aciertos_para_subir = 4*profundidad_actual; // Tras x aciertos, subimos la dificultad
-    int max_profundidad = 5;     // La profundidad máxima de tu árbol
+    int aciertos_para_subir = 4*profundidad_actual; //tras x aciertos, subimos la dificultad
+    int max_profundidad = 5;     //profundidad max del arbol
 
     char caracter_objetivo;
     char patron[16];
@@ -1129,30 +1128,30 @@ void modo_escucha_morse()
 
     while (1)
     {
-        // 1. GENERAR CARÁCTER: Aleatorio pero dentro de la profundidad desbloqueada
+        //generar caracter aleatorio dentro de la profundidad desbloqueada
         do {
-            int min_idx = 1; // Siempre repasamos desde la raíz
-            // Magia binaria: el índice máximo de un nivel en un árbol aplanado es (2^(nivel+1)) - 2
+            int min_idx = 1; //partimos siempre desde la raiz
+            //calculo del indice maximo posible
             int max_idx = (1 << (profundidad_actual + 1)) - 2; 
             
             int tam_arbol = morse_obtener_tamano_arbol();
             if (max_idx > tam_arbol) max_idx = tam_arbol;
 
-            // Elegir índice aleatorio en los niveles desbloqueados
+            //eleccion indice aleatorio en funcion de profundidad
             int random_idx = min_idx + rand() % (max_idx - min_idx + 1);
             caracter_objetivo = morse_obtener_caracter_por_indice(random_idx);
 
-        // Repetir si cae en un hueco vacío '?' o espacio del árbol
+        //repetir si cae en vacio
         } while (caracter_objetivo == '?' || caracter_objetivo == ' ');
 
-        // 2. OBTENER EL PATRÓN PARA LAS PANTALLAS
+        //2 obtencion patron
         morse_obtener_patron(caracter_objetivo, patron, &long_patron);
         patron[long_patron] = '\0';
 
         printf("\n[Nivel %d] Escucha y escribe la letra [%s] (ESPACIO para repetir): ", profundidad_actual, patron);
         fflush(stdout);
 
-        // Mostrar en OLED
+        //Mostrar en OLED
         snprintf(buf_oled_patron, sizeof(buf_oled_patron), "Morse: %s", patron);
         oled_posicionar_cursor(0, 3);
         oled_imprimir("                    ");
@@ -1166,7 +1165,7 @@ void modo_escucha_morse()
 
         int avanzar_siguiente_letra = 0;
 
-        // 3. BUCLE DE LECTURA HASTA ACERTAR O FALLAR MUCHO
+        //Bucle lectura
         while (!avanzar_siguiente_letra)
         {
             char tecla;
@@ -1204,17 +1203,17 @@ void modo_escucha_morse()
                     oled_imprimir("[ACIERTO]");
                     usleep(700000);
 
-                    // Lógica para subir de nivel
+                    //logica subidad nivel
                     if (aciertos_nivel >= aciertos_para_subir && profundidad_actual < max_profundidad) {
                         profundidad_actual++;
-                        aciertos_nivel = 0; // Reiniciamos el contador para el nuevo nivel
-                        aciertos_para_subir = 4*profundidad_actual; // Incrementamos el umbral para el siguiente nivel  
+                        aciertos_nivel = 0; //reiniciar contador nuevo nivel
+                        aciertos_para_subir = 4*profundidad_actual; //incrementar umbral para siguiente nivel
                         printf("\n--- ¡SUBES DE NIVEL! Símbolos de hasta %d elementos ---\n", profundidad_actual);
 
                         usleep(1500000);
                     }
                     
-                    avanzar_siguiente_letra = 1; // Romper el bucle interior para sacar otra letra
+                    avanzar_siguiente_letra = 1; //romper bucle y sacar otra letra
                 }
                 else
                 {
@@ -1237,16 +1236,16 @@ void modo_escucha_morse()
                         printf("Demasiados fallos. La letra era %c.\n", objetivo);
                         num_intentos_fallidos = 0;
                         
-                        // Pequeña penalización: restamos un acierto si fallan mucho para que no suban de nivel sin saberlo
+                        //penalizacion para que no suba nivel si falla mucho
                         if (aciertos_nivel > 0) aciertos_nivel--; 
                         
                         usleep(1500000);
-                        avanzar_siguiente_letra = 1; // Pasamos a la siguiente letra
+                        avanzar_siguiente_letra = 1; //siguiente letra
                     }
                 }
             }
 
-            // Control de hardware (pulsador físico para salir)
+            //control hw (pulsador para salir)
             char lectura = 0;
             pthread_mutex_lock(&mutex_morse);
             if (simbolo_detectado != 0) {
@@ -1261,7 +1260,7 @@ void modo_escucha_morse()
                 oled_imprimir(" Volviendo al");
                 oled_posicionar_cursor(0, 3);
                 oled_imprimir("    menu...");
-                usleep(1000000); // Pequeña pausa para que se lea la pantalla
+                usleep(1000000); //pausa para que se lea la pantalla
                 
                 emitir_tono = 0;
                 restaurar_terminal();

@@ -1,6 +1,6 @@
-# MorseBerry 🫐
+# MorseBerry
 
-Entrenador de código Morse para Raspberry Pi. Permite practicar Morse mediante un pulsador físico conectado a GPIO, con feedback sonoro por I2S/ALSA y visualización en pantalla OLED SSD1306.
+Entrenador de código Morse para Raspberry Pi. Permite practicar morse mediante un pulsador físico conectado a GPIO o un manipulador, con feedback sonoro por I2S/ALSA y visualización en pantalla OLED SSD1306.
 
 ---
 
@@ -10,8 +10,8 @@ El proyecto usa las siguientes librerías externas:
 
 | Librería | Paquete runtime | Paquete desarrollo | Uso |
 |---|---|---|---|
-| libgpiod | `libgpiod2` | `libgpiod-dev` | Lectura del pulsador GPIO |
-| ALSA | `libasound2` | `libasound2-dev` | Salida de audio por I2S |
+| libgpiod | `libgpiod2` | `libgpiod-dev` | Lectura pulsador GPIO |
+| ALSA | `libasound2` | `libasound2-dev` | Salida audio por I2S |
 | pthread | incluida en glibc | incluida en gcc | Hilos concurrentes |
 | libm | incluida en glibc | incluida en gcc | Generación de onda senoidal |
 
@@ -63,19 +63,22 @@ make clean
 
 ## Uso
 
+Todos los argumentos son opcionales y tienen opciones por defecto
 ```bash
-./main -g [pin_gpio] -f [frecuencia]
+./main -g [pin_gpio] -f [frecuencia] -p [manip_punto] -r [manip_raya]
 ```
 
 | Argumento | Descripción | Ejemplo |
 |---|---|---|
-| `-g` | Número de pin GPIO donde está conectado el pulsador | `-g 17` |
-| `-f` | Frecuencia del tono Morse en Hz (opcional) | `-f 700` |
+| `-g` | Número pin GPIO del pulsador (defecto: 17) | `-g 19` |
+| `-f` | Frecuencia de morse en ppm(defecto: 12ppm)  | `-f 15` |
+| `-p` | Número pin GPIO del manipulador del punto (defecto: 24)| `-p 23` |
+| `-r` | Número pin GPIO del manipulador de la raya (defecto: 23) | `-r 24` |
 
 Ejemplo completo:
 
 ```bash
-./main -g 17 -f 700
+./main -g 19 -f 15 -p 23 -r 24
 ```
 
 ### Navegación por el menú
@@ -83,8 +86,8 @@ Ejemplo completo:
 | Entrada | Acción |
 |---|---|
 | Pulso corto | Bajar una opción |
-| Mantener pulsado (>1.5s) | Confirmar opción seleccionada |
-| Tecla `1`-`7` | Seleccionar opción directamente |
+| Mantener pulsado (14 veces duración punto) | Confirmar opción seleccionada |
+| Teclado numérico | Seleccionar opción directamente |
 | `Espacio` / `S` | Bajar una opción |
 | `Enter` | Confirmar opción resaltada |
 | `Esc` | Volver al menú |
@@ -94,7 +97,8 @@ Ejemplo completo:
 ## Hardware necesario
 
 - Raspberry Pi (cualquier modelo con GPIO)
-- Pulsador conectado al pin GPIO configurado (con resistencia pull-up interna activada por software)
+- Pulsador conectado al pin GPIO configurado (con resistencia pull-up interna activada por software o condensador)
+- (Opcional) Pulsadores conectado a los GPIO configurados para el manipulador (con resistencia pull-up interna activada por software o condensador)
 - Pantalla OLED SSD1306 por I2C
 - Salida de audio compatible con ALSA (jack 3.5mm o DAC I2S)
 
@@ -104,19 +108,19 @@ Ejemplo completo:
 
 ```
 .
-├── main.c                  # Punto de entrada, menú principal
-├── audio.c / .h            # Hilo de audio ALSA
-├── gpio_input.c / .h       # Hilo de lectura del pulsador
-├── modos.c / .h            # Modos de entrenamiento
-├── pantalla_oled.c / .h    # Driver OLED SSD1306
-├── traductor_morse.c / .h  # Lógica de traducción Morse
-├── globals.c               # Variables globales compartidas
-├── config.h                # Constantes y configuración
-├── utils.c / .h            # Utilidades (tiempo, terminal)
-├── palabras.c / .h         # Banco de palabras para práctica
+├── main.c                  # menu principal
+├── audio.c / .h            # hilo de audio ALSA
+├── gpio_input.c / .h       # hilo de lectura del pulsador
+├── modos.c / .h            # modos de entrenamiento
+├── pantalla_oled.c / .h    # driver OLED SSD1306
+├── traductor_morse.c / .h  # logica de traducción Morse
+├── globals.c               # variables globales compartidas
+├── config.h                # constantes y configuración
+├── utils.c / .h            # utilidades (tiempo, terminal)
+├── palabras.c / .h         # banco de palabras
 ├── extern/
-│   ├── ssd1306.c / .h      # Driver bajo nivel SSD1306
-│   └── ssd1306_fonts.c     # Fuentes para la OLED
+│   ├── ssd1306.c / .h      # driver bajo nivel SSD1306
+│   └── ssd1306_fonts.c     # fuentes para la OLED
 ├── makefile
 ├── install_deps.sh
 └── README.md

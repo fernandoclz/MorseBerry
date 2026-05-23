@@ -1,6 +1,6 @@
 /*
 
-Este módulo utiliza y adapta la librería para controladores SSD1306 
+Este modulo utiliza y adapta la libreria para controladores SSD1306 
 desarrollada por Aleksander Alekseev.
 
 MIT License
@@ -31,33 +31,19 @@ SOFTWARE.
 
 #include <stdint.h>
 
-/**
- * Inicializa el bus I2C en Linux y configura la pantalla OLED.
- */
+// inicializa bus I2C en linux y configura la pantalla OLED.
 void oled_inicializar(void);
 
-/**
- * Limpia la pantalla OLED dejándola en negro.
- */
+//limpia pantalla OLED y la deja en negro.
 void oled_limpiar(void);
 
-/**
- * Posiciona el cursor en la pantalla para empezar a escribir.
- * @param x Coordenada X (horizontal, típicamente de 0 a 127)
- * @param y Coordenada Y o Página (vertical)
- */
+//posiciona cursor en la pantalla para empezar a escribir.
 void oled_posicionar_cursor(uint8_t x, uint8_t y);
 
-/**
- * Escribe un texto en la pantalla a partir de la posición actual del cursor
- * y actualiza la pantalla para que los cambios sean visibles.
- * @param texto Cadena de caracteres a imprimir
- */
+//escribe texto en la pantalla a partir de la posicion actual del cursor
 void oled_imprimir(const char* texto);
 
-/**
- * Apaga la pantalla y cierra la comunicación I2C.
- */
+//apaga pantalla y cierra la comunicacion I2C.
 void oled_cerrar(void);
 
 #endif // PANTALLA_OLED_H

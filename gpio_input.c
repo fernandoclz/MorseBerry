@@ -18,7 +18,7 @@ void *funcion_hilo_gpio(void *arg)
 
     while (continuar_ejecucion_hilo)
     {
-        // espera 100ms viendo si se produce evento se subida o bajada
+        // espera hasta 100ms viendo si se produce evento se subida o bajada
         ret = gpiod_line_request_wait_edge_events(request, 100000000);
 
         if (ret > 0)
@@ -38,16 +38,18 @@ void *funcion_hilo_gpio(void *arg)
                     {
                         pthread_mutex_lock(&mutex_morse);
 
-                        if (linea == manip_izq_gpio)
+                        if (linea == manip_izq_gpio) {
                             simbolo_detectado = SIMBOLO_PUNTO;
                             emitir_tono = 1;
-                            usleep(tiempo_punto * 1000); // Emitir tono durante el tiempo del punto
+                            usleep(tiempo_punto * 1000); //emitir tono durante el tiempo del punto
                             emitir_tono = 0;
-                        else if (linea == manip_der_gpio)
+                        }
+                        else if (linea == manip_der_gpio){
                             simbolo_detectado = SIMBOLO_RAYA;
                             emitir_tono = 1;
-                            usleep(tiempo_raya * 1000); // Emitir tono durante el tiempo de la raya
+                            usleep(tiempo_raya * 1000); //emitir tono durante el tiempo de la raya
                             emitir_tono = 0;
+                        }
 
                         pthread_mutex_unlock(&mutex_morse);
 
@@ -70,8 +72,6 @@ void *funcion_hilo_gpio(void *arg)
                     long long duracion_pulsacion = tiempo_ahora - tiempo_pulsado;
                     tiempo_sin_pulsar = obtener_tiempo_actual();
 
-                    // SOLUCIÓN: Solo procesar si realmente estábamos en estado "pulsado".
-                    // Esto evita que se sobrescriba la señal de salida.
                     if (pulsado == 1)
                     {
                         pulsado = 0;
@@ -103,14 +103,13 @@ void *funcion_hilo_gpio(void *arg)
 
             if (pulsado == 1)
             {
-                // NUEVO: Detectar si se está manteniendo pulsado más de 1.5s
+                //detecta si pulsado muy largo
                 if (tiempo_ahora - tiempo_pulsado >= tiempo_mantener)
                 {
                     pthread_mutex_lock(&mutex_morse);
                     simbolo_detectado = SIMBOLO_MANTENER_PULSADO;
                     pthread_mutex_unlock(&mutex_morse);
 
-                    // "Engañamos" al estado para no emitir múltiples señales seguidas
                     pulsado = 0;
                     emitir_tono = 0;
                     tiempo_sin_pulsar = tiempo_ahora;
@@ -120,15 +119,15 @@ void *funcion_hilo_gpio(void *arg)
             {
                 long long tiempo_inactivo = tiempo_ahora - tiempo_sin_pulsar;
 
-                // Evaluamos el espacio largo primero (fin de palabra)
+                //espacio largo
                 if (tiempo_inactivo > tiempo_espacio && tiempo_sin_pulsar != 0)
                 {
                     pthread_mutex_lock(&mutex_morse);
                     simbolo_detectado = SIMBOLO_ESPACIO_LARGO;
-                    tiempo_sin_pulsar = 0; // Esto evita que vuelva a entrar
+                    tiempo_sin_pulsar = 0;
                     pthread_mutex_unlock(&mutex_morse);
                 }
-                // Evaluamos el espacio corto (fin de letra) asegurándonos de emitirlo solo UNA vez
+                //espacio corto
                 else if (tiempo_inactivo >= (tiempo_raya - desviacion) &&
                          tiempo_sin_pulsar != 0 &&
                          espacio_corto_emitido == 0)
@@ -138,7 +137,7 @@ void *funcion_hilo_gpio(void *arg)
                     simbolo_detectado = SIMBOLO_ESPACIO_CORTO;
                     pthread_mutex_unlock(&mutex_morse);
 
-                    espacio_corto_emitido = 1; // MARCAMOS COMO EMITIDO
+                    espacio_corto_emitido = 1;
                 }
             }
         }

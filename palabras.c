@@ -5,7 +5,6 @@
 
 #define NUM_PALABRAS 20
 
-// Puedes ampliar esta lista hasta 100 o más
 static const char* lista_palabras[] = {
     "SE", "HI", "NO", "SI", "TE",
     "CASA", "PERRO", "GATO", "MESA", "SILLA",
@@ -24,6 +23,6 @@ const char* obtener_palabra_aleatoria( )
 
     int numeroAleatorio = rand() % NUM_PALABRAS;
 
-    //return lista_palabras[4]; para pruebas
+    //return lista_palabras[4]; // para pruebas
     return lista_palabras[numeroAleatorio];
 }
